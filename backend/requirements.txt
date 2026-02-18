@@ -6,3 +6,8 @@ pydantic
 aiofiles
 python-dotenv
 json-repair
+aiohttp
+SpeechRecognition
+deep-translator
+pydub
+gradio_client

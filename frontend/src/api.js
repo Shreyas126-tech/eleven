@@ -4,8 +4,10 @@ const API_BASE_URL = 'http://localhost:8001';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
+    timeout: 120000, // 2 min timeout for AI generation
 });
 
+// ============= Text-to-Speech =============
 export const get_voices = async () => {
     const response = await api.get('/voices');
     return response.data;
@@ -13,6 +15,53 @@ export const get_voices = async () => {
 
 export const synthesize = async (text, voice) => {
     const response = await api.post('/synthesize', { text, voice });
+    return response.data;
+};
+
+// ============= Song Generation =============
+export const get_genres = async () => {
+    const response = await api.get('/genres');
+    return response.data;
+};
+
+export const generate_song = async (prompt, genre = '', duration = 10) => {
+    const response = await api.post('/generate-song', { prompt, genre, duration });
+    return response.data;
+};
+
+// ============= Voice Translation =============
+export const get_languages = async () => {
+    const response = await api.get('/languages');
+    return response.data;
+};
+
+export const translate_audio = async (audioFile, targetLang) => {
+    const formData = new FormData();
+    formData.append('audio', audioFile);
+    formData.append('target_lang', targetLang);
+    const response = await api.post('/translate-audio', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+};
+
+export const translate_text = async (text, targetLang) => {
+    const response = await api.post('/translate-text', { text, target_lang: targetLang });
+    return response.data;
+};
+
+// ============= Voice Cloning =============
+export const get_celebrities = async () => {
+    const response = await api.get('/celebrities');
+    return response.data;
+};
+
+export const clone_voice = async (celebrityId, text, mode = 'speak') => {
+    const response = await api.post('/clone-voice', {
+        celebrity_id: celebrityId,
+        text,
+        mode,
+    });
     return response.data;
 };
 
