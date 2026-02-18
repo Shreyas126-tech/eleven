@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+edge-tts
+python-multipart
+pydantic
+aiofiles
+python-dotenv
+json-repair

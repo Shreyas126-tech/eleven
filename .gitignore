@@ -1,0 +1,21 @@
+# Node.js
+frontend/node_modules/
+frontend/dist/
+frontend/.env*
+
+# Python
+__pycache__/
+backend/__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+
+# App Specific
+backend/static/audio/*.mp3
+static/audio/*.mp3
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
