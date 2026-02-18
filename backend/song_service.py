@@ -3,6 +3,10 @@ import uuid
 import asyncio
 import edge_tts
 import random
+from deep_translator import GoogleTranslator
+
+# Import language mapping from translate_service to reuse voice definitions
+from translate_service import LANGUAGE_VOICES
 
 OUTPUT_DIR = "static/audio"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -72,7 +76,7 @@ SONG_STRUCTURES = {
     },
 }
 
-# Voices suited for different singing styles
+# Voices suited for different singing styles (English/Default)
 SINGING_VOICES = {
     "male_pop": {"voice": "en-US-GuyNeural", "rate": "-15%", "pitch": "+2Hz"},
     "female_pop": {"voice": "en-US-AriaNeural", "rate": "-15%", "pitch": "+5Hz"},
@@ -175,32 +179,59 @@ def _format_lyrics_for_singing(lyrics: str) -> str:
     return " ... ".join(singing_lines)
 
 
-async def generate_song(prompt: str, genre: str = "", duration: int = 10):
+async def generate_song(prompt: str, genre: str = "", duration: int = 10, language: str = "en"):
     """
     Generate a song with lyrics:
-    1. Generate lyrics based on prompt and genre
-    2. Use edge-tts to sing the lyrics with musical voice styling
+    1. Generate lyrics based on prompt and genre (in English first)
+    2. If language != 'en', translate lyrics to target language
+    3. Use edge-tts to sing the lyrics with musical voice styling
     """
-    # Step 1: Generate lyrics
+    # Step 1: Generate initial lyrics (English)
     lyrics = _generate_lyrics(prompt, genre)
     
-    # Step 2: Format for singing
-    singing_text = _format_lyrics_for_singing(lyrics)
+    final_lyrics = lyrics
     
-    # Step 3: Pick a voice based on genre
-    if genre in ("bollywood", "indian_classical"):
-        voice_options = ["hindi_female", "hindi_male"]
-    elif genre in ("rock", "hiphop"):
-        voice_options = ["male_deep", "male_pop"]
-    elif genre in ("rnb", "jazz", "lofi"):
-        voice_options = ["female_soft", "female_pop"]
+    # Step 2: Translate if needed
+    if language != "en":
+        try:
+            translator = GoogleTranslator(source='auto', target=language)
+            # Translate the full lyrics block
+            final_lyrics = translator.translate(lyrics)
+        except Exception as e:
+            print(f"Lyrics translation failed: {e}")
+            # Fallback to English if translation fails
+            final_lyrics = lyrics
+            language = "en"
+    
+    # Step 3: Format for singing
+    singing_text = _format_lyrics_for_singing(final_lyrics)
+    
+    # Step 4: Pick a voice based on language and genre
+    voice_config = {}
+    
+    if language != "en" and language in LANGUAGE_VOICES:
+        # Use a native voice for the target language
+        voice_info = LANGUAGE_VOICES[language]
+        voice_config = {
+            "voice": voice_info["voice"],
+            "rate": "-10%", # Slightly slower for singing
+            "pitch": "+2Hz" # Slightly higher for singing
+        }
     else:
-        voice_options = list(SINGING_VOICES.keys())
+        # Default English logic based on genre
+        if genre in ("bollywood", "indian_classical"):
+            voice_options = ["hindi_female", "hindi_male"]
+        elif genre in ("rock", "hiphop"):
+            voice_options = ["male_deep", "male_pop"]
+        elif genre in ("rnb", "jazz", "lofi"):
+            voice_options = ["female_soft", "female_pop"]
+        else:
+            voice_options = list(SINGING_VOICES.keys())
+        
+        voice_key = random.choice(voice_options)
+        voice_config = SINGING_VOICES[voice_key]
     
-    voice_key = random.choice(voice_options)
-    voice_config = SINGING_VOICES[voice_key]
-    
-    # Step 4: Generate the audio
+    # Step 5: Generate the audio
     filename = f"song_{uuid.uuid4().hex[:8]}.mp3"
     filepath = os.path.join(OUTPUT_DIR, filename)
     
@@ -218,48 +249,8 @@ async def generate_song(prompt: str, genre: str = "", duration: int = 10):
             "url": f"/static/audio/{filename}",
             "prompt": prompt,
             "genre": genre,
-            "lyrics": lyrics,
-            "voice": voice_key,
-            "status": "success"
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": f"Song generation failed: {str(e)}"
-        }
-
-
-async def generate_song_with_custom_lyrics(lyrics: str, genre: str = "", voice_type: str = ""):
-    """
-    Generate a song from user-provided lyrics.
-    """
-    singing_text = _format_lyrics_for_singing(lyrics)
-    
-    # Pick voice
-    if voice_type and voice_type in SINGING_VOICES:
-        voice_config = SINGING_VOICES[voice_type]
-    elif genre in ("bollywood", "indian_classical"):
-        voice_config = SINGING_VOICES[random.choice(["hindi_female", "hindi_male"])]
-    else:
-        voice_config = SINGING_VOICES[random.choice(list(SINGING_VOICES.keys()))]
-    
-    filename = f"song_{uuid.uuid4().hex[:8]}.mp3"
-    filepath = os.path.join(OUTPUT_DIR, filename)
-    
-    try:
-        communicate = edge_tts.Communicate(
-            singing_text,
-            voice_config["voice"],
-            rate=voice_config["rate"],
-            pitch=voice_config["pitch"],
-        )
-        await communicate.save(filepath)
-        
-        return {
-            "filename": filename,
-            "url": f"/static/audio/{filename}",
-            "lyrics": lyrics,
-            "genre": genre,
+            "lyrics": final_lyrics,
+            "language": language,
             "status": "success"
         }
     except Exception as e:

@@ -40,11 +40,13 @@ class SongRequest(BaseModel):
     prompt: str
     genre: str = ""
     duration: int = 10
+    language: str = "en"  # Added language support
 
 
 class TranslateTextRequest(BaseModel):
     text: str
     target_lang: str
+    source_lang: str = "auto"  # Added source language
 
 
 class CloneRequest(BaseModel):
@@ -104,7 +106,8 @@ async def generate_song(request: SongRequest):
         result = await song_service.generate_song(
             prompt=request.prompt,
             genre=request.genre,
-            duration=request.duration
+            duration=request.duration,
+            language=request.language
         )
         return result
     except Exception as e:
@@ -123,7 +126,8 @@ async def get_languages():
 @app.post("/translate-audio")
 async def translate_audio(
     audio: UploadFile = File(...),
-    target_lang: str = Form(...)
+    target_lang: str = Form(...),
+    source_lang: str = Form("auto")  # Added source language field
 ):
     # Save uploaded audio to temp file
     temp_dir = "static/temp"
@@ -135,7 +139,7 @@ async def translate_audio(
             content = await audio.read()
             f.write(content)
 
-        result = await translate_service.translate_audio(temp_path, target_lang)
+        result = await translate_service.translate_audio(temp_path, target_lang, source_lang)
         return result
 
     except Exception as e:
@@ -143,7 +147,10 @@ async def translate_audio(
     finally:
         # Cleanup temp file
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            try:
+                os.remove(temp_path)
+            except:
+                pass
 
 
 @app.post("/translate-text")
@@ -151,7 +158,8 @@ async def translate_text(request: TranslateTextRequest):
     try:
         result = await translate_service.translate_text_input(
             text=request.text,
-            target_lang=request.target_lang
+            target_lang=request.target_lang,
+            source_lang=request.source_lang
         )
         return result
     except Exception as e:
@@ -170,16 +178,12 @@ async def get_celebrities():
 @app.post("/clone-voice")
 async def clone_voice(request: CloneRequest):
     try:
-        if request.mode == "sing":
-            result = await clone_service.clone_voice_sing(
-                celebrity_id=request.celebrity_id,
-                lyrics=request.text,
-            )
-        else:
-            result = await clone_service.clone_voice(
-                celebrity_id=request.celebrity_id,
-                text=request.text,
-            )
+        # Simplified call to single clone_voice function
+        result = await clone_service.clone_voice(
+            celebrity_id=request.celebrity_id,
+            text=request.text,
+            mode=request.mode
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

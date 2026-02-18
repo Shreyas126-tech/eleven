@@ -11,3 +11,4 @@ SpeechRecognition
 deep-translator
 pydub
 gradio_client
+imageio-ffmpeg

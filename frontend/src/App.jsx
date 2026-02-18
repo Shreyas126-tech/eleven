@@ -25,12 +25,14 @@ function App() {
   const [songPrompt, setSongPrompt] = useState('');
   const [genres, setGenres] = useState([]);
   const [selectedGenre, setSelectedGenre] = useState('');
+  const [songLanguage, setSongLanguage] = useState('en');
   const [isSongGenerating, setIsSongGenerating] = useState(false);
 
   // Translator State
   const [translateInputText, setTranslateInputText] = useState('');
   const [languages, setLanguages] = useState([]);
   const [targetLang, setTargetLang] = useState('es');
+  const [sourceLang, setSourceLang] = useState('auto');
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationResult, setTranslationResult] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -193,7 +195,7 @@ function App() {
     setIsSongGenerating(true);
     setStatusMessage({ type: 'info', text: 'Generating your song... This may take up to 2 minutes.' });
     try {
-      const result = await api.generate_song(songPrompt, selectedGenre);
+      const result = await api.generate_song(songPrompt, selectedGenre, 10, songLanguage);
       if (result.status === 'error') {
         setStatusMessage({ type: 'error', text: result.error || 'Song generation failed.' });
         return;
@@ -216,7 +218,7 @@ function App() {
     setIsTranslating(true);
     setStatusMessage({ type: 'info', text: 'Translating and generating speech...' });
     try {
-      const result = await api.translate_text(translateInputText, targetLang);
+      const result = await api.translate_text(translateInputText, targetLang, sourceLang);
       if (result.status === 'error') {
         setStatusMessage({ type: 'error', text: result.error });
         setIsTranslating(false);
@@ -235,17 +237,29 @@ function App() {
   };
 
   // ============= Voice Recording =============
+  const [recordingTime, setRecordingTime] = useState(0);
+  const recordingInterval = useRef(null);
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // Use webm format (browser default) — the server will convert it
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm'
-      });
+      // Reset timer
+      setRecordingTime(0);
+      recordingInterval.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+
+      // Try to find a supported MIME type
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg'
+      ].find(type => MediaRecorder.isTypeSupported(type)) || '';
+
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -256,6 +270,9 @@ function App() {
       };
 
       mediaRecorder.onstop = async () => {
+        // Stop timer
+        clearInterval(recordingInterval.current);
+
         // Stop all media tracks
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
@@ -267,13 +284,15 @@ function App() {
           return;
         }
 
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const audioFile = new File([audioBlob], `recording.${ext}`, { type: mimeType });
 
         setIsTranslating(true);
         setStatusMessage({ type: 'info', text: 'Processing your recording and translating...' });
         try {
-          const result = await api.translate_audio(audioFile, targetLang);
+          const result = await api.translate_audio(audioFile, targetLang, sourceLang);
           if (result.status === 'error') {
             setStatusMessage({ type: 'error', text: result.error });
             setIsTranslating(false);
@@ -445,6 +464,20 @@ function App() {
                   </div>
                 </div>
                 <div className="form-group">
+                  <label>SONG LANGUAGE</label>
+                  <select
+                    value={songLanguage}
+                    onChange={(e) => setSongLanguage(e.target.value)}
+                    className="dropdown-select"
+                  >
+                    <option value="en">🇺🇸 English (Default)</option>
+                    {languages.filter(l => l.code !== 'en').map(l => (
+                      <option key={l.code} value={l.code}>{l.flag} {l.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
                   <label>DESCRIBE YOUR SONG</label>
                   <textarea
                     placeholder="E.g., A happy upbeat summer song about friendship with acoustic guitar..."
@@ -497,6 +530,20 @@ function App() {
                   </button>
                 </div>
 
+                <div className="form-group">
+                  <label>SOURCE LANGUAGE</label>
+                  <select
+                    value={sourceLang}
+                    onChange={(e) => setSourceLang(e.target.value)}
+                    className="dropdown-select"
+                  >
+                    <option value="auto">✨ Auto Detect</option>
+                    {languages.map(l => (
+                      <option key={l.code} value={l.code}>{l.flag} {l.name}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {inputMode === 'text' ? (
                   <div className="form-group">
                     <label>ENTER TEXT TO TRANSLATE</label>
@@ -523,7 +570,7 @@ function App() {
                       )}
                       <p className="mic-label">
                         {isRecording
-                          ? '🔴 Recording... Click to stop'
+                          ? `🔴 Recording... ${Math.floor(recordingTime / 60)}:${(recordingTime % 60).toString().padStart(2, '0')} (Click to stop)`
                           : isTranslating
                             ? 'Processing recording...'
                             : 'Click to start recording'
@@ -681,6 +728,14 @@ function App() {
                   <Download size={18} /> Download
                 </button>
               </div>
+
+              {/* Lyrics Display */}
+              {currentAudio.lyrics && (
+                <div className="lyrics-container">
+                  <h4>Lyrics</h4>
+                  <p>{currentAudio.lyrics}</p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

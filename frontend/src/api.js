@@ -24,8 +24,13 @@ export const get_genres = async () => {
     return response.data;
 };
 
-export const generate_song = async (prompt, genre = '', duration = 10) => {
-    const response = await api.post('/generate-song', { prompt, genre, duration });
+export const generate_song = async (prompt, genre = '', duration = 10, language = 'en') => {
+    const response = await api.post('/generate-song', { prompt, genre, duration, language });
+    return response.data;
+};
+
+export const get_singing_voices = async () => {
+    const response = await api.get('/singing-voices');
     return response.data;
 };
 
@@ -35,18 +40,19 @@ export const get_languages = async () => {
     return response.data;
 };
 
-export const translate_audio = async (audioFile, targetLang) => {
+export const translate_audio = async (audioFile, targetLang, sourceLang = 'auto') => {
     const formData = new FormData();
     formData.append('audio', audioFile);
     formData.append('target_lang', targetLang);
+    formData.append('source_lang', sourceLang);
     const response = await api.post('/translate-audio', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
 };
 
-export const translate_text = async (text, targetLang) => {
-    const response = await api.post('/translate-text', { text, target_lang: targetLang });
+export const translate_text = async (text, targetLang, sourceLang = 'auto') => {
+    const response = await api.post('/translate-text', { text, target_lang: targetLang, source_lang: sourceLang });
     return response.data;
 };
 
