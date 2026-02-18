@@ -10,7 +10,7 @@ const TABS = [
   { id: 'clone', label: 'Voice Cloning', icon: Users, gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
 ];
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8001';
 
 function App() {
   const [activeTab, setActiveTab] = useState('tts');
@@ -20,6 +20,7 @@ function App() {
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [voiceLocaleFilter, setVoiceLocaleFilter] = useState('all');
 
   // Song State
   const [songPrompt, setSongPrompt] = useState('');
@@ -143,11 +144,18 @@ function App() {
   const fetchVoices = async () => {
     try {
       const data = await api.get_voices();
-      const enVoices = data.filter(v => v.Locale.startsWith('en'));
-      setVoices(enVoices);
-      if (enVoices.length > 0) setSelectedVoice(enVoices[0].ShortName);
+      setVoices(data);
+      // Default to first English voice
+      const defaultVoice = data.find(v => v.Locale.startsWith('en')) || data[0];
+      if (defaultVoice) setSelectedVoice(defaultVoice.ShortName);
     } catch (e) { console.error('Failed to fetch voices', e); }
   };
+
+  // Get unique locales for the filter dropdown
+  const uniqueLocales = [...new Set(voices.map(v => v.Locale))].sort();
+  const filteredVoices = voiceLocaleFilter === 'all'
+    ? voices
+    : voices.filter(v => v.Locale.startsWith(voiceLocaleFilter));
 
   const fetchGenres = async () => {
     try {
@@ -430,9 +438,33 @@ function App() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>SELECT VOICE</label>
+                  <label>FILTER BY LANGUAGE</label>
+                  <select
+                    value={voiceLocaleFilter}
+                    onChange={(e) => setVoiceLocaleFilter(e.target.value)}
+                    className="dropdown-select"
+                  >
+                    <option value="all">🌐 All Languages</option>
+                    <option value="en">🇺🇸 English</option>
+                    <option value="kn">🇮🇳 Kannada</option>
+                    <option value="hi">🇮🇳 Hindi</option>
+                    <option value="ta">🇮🇳 Tamil</option>
+                    <option value="te">🇮🇳 Telugu</option>
+                    <option value="bn">🇮🇳 Bengali</option>
+                    <option value="es">🇪🇸 Spanish</option>
+                    <option value="fr">🇫🇷 French</option>
+                    <option value="de">🇩🇪 German</option>
+                    <option value="ja">🇯🇵 Japanese</option>
+                    <option value="ko">🇰🇷 Korean</option>
+                    <option value="zh">🇨🇳 Chinese</option>
+                    <option value="ar">🇸🇦 Arabic</option>
+                    <option value="ru">🇷🇺 Russian</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>SELECT VOICE ({filteredVoices.length} available)</label>
                   <div className="voice-list">
-                    {voices.slice(0, 8).map((voice) => (
+                    {filteredVoices.slice(0, 12).map((voice) => (
                       <div
                         key={voice.ShortName}
                         className={`voice-chip ${selectedVoice === voice.ShortName ? 'active' : ''}`}

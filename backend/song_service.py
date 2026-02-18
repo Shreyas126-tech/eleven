@@ -86,6 +86,8 @@ SINGING_VOICES = {
     "female_british": {"voice": "en-GB-SoniaNeural", "rate": "-15%", "pitch": "+3Hz"},
     "hindi_female": {"voice": "hi-IN-SwaraNeural", "rate": "-15%", "pitch": "+3Hz"},
     "hindi_male": {"voice": "hi-IN-MadhurNeural", "rate": "-15%", "pitch": "+0Hz"},
+    "kannada_female": {"voice": "kn-IN-SapnaNeural", "rate": "-15%", "pitch": "+3Hz"},
+    "kannada_male": {"voice": "kn-IN-GaganNeural", "rate": "-15%", "pitch": "+0Hz"},
 }
 
 
