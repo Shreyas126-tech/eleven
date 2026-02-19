@@ -1,5 +1,7 @@
-fastapi
+gunicorn
+uvloop
 uvicorn
+fastapi
 edge-tts
 python-multipart
 pydantic
@@ -10,5 +12,4 @@ aiohttp
 SpeechRecognition
 deep-translator
 pydub
-gradio_client
 imageio-ffmpeg
