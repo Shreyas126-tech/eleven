@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: eleven-ai
+    name: vaniverse-ai
     runtime: python
     buildCommand: bash build.sh
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT

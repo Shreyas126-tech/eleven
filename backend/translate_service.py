@@ -7,36 +7,32 @@ import edge_tts
 import imageio_ffmpeg
 from pydub import AudioSegment
 
-# Configure pydub to use the bundled FFmpeg binary
-AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
+# Configure pydub to use bundled FFmpeg
+ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+AudioSegment.converter = ffmpeg_exe
+# Also set ffprobe path explicitly for better Windows compatibility
+os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_exe)
 
 OUTPUT_DIR = "static/audio"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Mapping of language codes to edge-tts voice names
 LANGUAGE_VOICES = {
+    "en": {"voice": "en-US-JennyNeural", "name": "English", "flag": "🇺🇸"},
     "es": {"voice": "es-ES-ElviraNeural", "name": "Spanish", "flag": "🇪🇸"},
     "fr": {"voice": "fr-FR-DeniseNeural", "name": "French", "flag": "🇫🇷"},
     "de": {"voice": "de-DE-KatjaNeural", "name": "German", "flag": "🇩🇪"},
-    "it": {"voice": "it-IT-ElsaNeural", "name": "Italian", "flag": "🇮🇹"},
-    "pt": {"voice": "pt-BR-FranciscaNeural", "name": "Portuguese", "flag": "🇧🇷"},
-    "ja": {"voice": "ja-JP-NanamiNeural", "name": "Japanese", "flag": "🇯🇵"},
-    "ko": {"voice": "ko-KR-SunHiNeural", "name": "Korean", "flag": "🇰🇷"},
-    "zh": {"voice": "zh-CN-XiaoxiaoNeural", "name": "Chinese", "flag": "🇨🇳"},
     "hi": {"voice": "hi-IN-SwaraNeural", "name": "Hindi", "flag": "🇮🇳"},
-    "ar": {"voice": "ar-SA-ZariyahNeural", "name": "Arabic", "flag": "🇸🇦"},
-    "ru": {"voice": "ru-RU-SvetlanaNeural", "name": "Russian", "flag": "🇷🇺"},
-    "nl": {"voice": "nl-NL-ColetteNeural", "name": "Dutch", "flag": "🇳🇱"},
-    "sv": {"voice": "sv-SE-SofieNeural", "name": "Swedish", "flag": "🇸🇪"},
-    "pl": {"voice": "pl-PL-AgnieszkaNeural", "name": "Polish", "flag": "🇵🇱"},
-    "tr": {"voice": "tr-TR-EmelNeural", "name": "Turkish", "flag": "🇹🇷"},
-    "th": {"voice": "th-TH-PremwadeeNeural", "name": "Thai", "flag": "🇹🇭"},
-    "vi": {"voice": "vi-VN-HoaiMyNeural", "name": "Vietnamese", "flag": "🇻🇳"},
+    "kn": {"voice": "kn-IN-SapnaNeural", "name": "Kannada", "flag": "🇮🇳"},
     "ta": {"voice": "ta-IN-PallaviNeural", "name": "Tamil", "flag": "🇮🇳"},
     "te": {"voice": "te-IN-ShrutiNeural", "name": "Telugu", "flag": "🇮🇳"},
-    "kn": {"voice": "kn-IN-SapnaNeural", "name": "Kannada", "flag": "🇮🇳"},
     "bn": {"voice": "bn-IN-TanishaaNeural", "name": "Bengali", "flag": "🇮🇳"},
-    "en": {"voice": "en-US-JennyNeural", "name": "English", "flag": "🇺🇸"},
+    "ml": {"voice": "ml-IN-SobhanaNeural", "name": "Malayalam", "flag": "🇮🇳"},
+    "mr": {"voice": "mr-IN-AarohiNeural", "name": "Marathi", "flag": "🇮🇳"},
+    "gu": {"voice": "gu-IN-DhwaniNeural", "name": "Gujarati", "flag": "🇮🇳"},
+    "ja": {"voice": "ja-JP-NanamiNeural", "name": "Japanese", "flag": "🇯🇵"},
+    "ko": {"voice": "ko-KR-SunHiNeural", "name": "Korean", "flag": "🇰🇷"},
+    "ar": {"voice": "ar-SA-ZariyahNeural", "name": "Arabic", "flag": "🇸🇦"},
+    "ru": {"voice": "ru-RU-SvetlanaNeural", "name": "Russian", "flag": "🇷🇺"},
 }
 
 

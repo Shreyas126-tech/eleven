@@ -1,11 +1,11 @@
 import axios from 'axios';
 
 // In production (Render), use same origin. In dev, use localhost:8001
-const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:8001';
+const API_BASE_URL = import.meta.env.PROD ? '' : 'http://127.0.0.1:8001';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 120000, // 2 min timeout for AI generation
+    timeout: 120000,
 });
 
 // ============= Text-to-Speech =============
@@ -57,19 +57,22 @@ export const translate_text = async (text, targetLang, sourceLang = 'auto') => {
     return response.data;
 };
 
-// ============= Voice Cloning =============
-export const get_celebrities = async () => {
-    const response = await api.get('/celebrities');
+// ============= Voice Cloning (Presets) =============
+export const get_voice_presets = async () => {
+    const response = await api.get('/voice-presets');
     return response.data;
 };
 
-export const clone_voice = async (celebrityId, text, mode = 'speak') => {
+export const clone_voice = async (presetId, text, mode = 'speak') => {
     const response = await api.post('/clone-voice', {
-        celebrity_id: celebrityId,
+        preset_id: presetId,
         text,
         mode,
     });
     return response.data;
 };
+
+// ============= BGM Generator =============
+
 
 export default api;

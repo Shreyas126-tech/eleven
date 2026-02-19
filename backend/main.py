@@ -8,11 +8,12 @@ import tts_service
 import song_service
 import translate_service
 import clone_service
+
 import os
 import uuid
 import shutil
 
-app = FastAPI(title="ELEVEN.AI - AI Audio Platform")
+app = FastAPI(title="VaniverseAI - AI Audio Platform")
 
 # Enable CORS
 app.add_middleware(
@@ -41,23 +42,25 @@ class SongRequest(BaseModel):
     prompt: str
     genre: str = ""
     duration: int = 10
-    language: str = "en"  # Added language support
+    language: str = "en"
 
 
 class TranslateTextRequest(BaseModel):
     text: str
     target_lang: str
-    source_lang: str = "auto"  # Added source language
+    source_lang: str = "auto"
 
 
 class CloneRequest(BaseModel):
-    celebrity_id: str
+    preset_id: str
     text: str
     mode: str = "speak"  # "speak" or "sing"
 
 
+
+
 # ============================================================
-# Text-to-Speech (existing)
+# Text-to-Speech
 # ============================================================
 
 @app.get("/voices")
@@ -128,9 +131,8 @@ async def get_languages():
 async def translate_audio(
     audio: UploadFile = File(...),
     target_lang: str = Form(...),
-    source_lang: str = Form("auto")  # Added source language field
+    source_lang: str = Form("auto")
 ):
-    # Save uploaded audio to temp file
     temp_dir = "static/temp"
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, f"upload_{uuid.uuid4().hex[:8]}_{audio.filename}")
@@ -146,7 +148,6 @@ async def translate_audio(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Cleanup temp file
         if os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
@@ -168,26 +169,30 @@ async def translate_text(request: TranslateTextRequest):
 
 
 # ============================================================
-# Voice Cloning
+# Voice Cloning (Age Group & Tune Presets)
 # ============================================================
 
-@app.get("/celebrities")
-async def get_celebrities():
-    return clone_service.get_celebrities()
+@app.get("/voice-presets")
+async def get_voice_presets():
+    return clone_service.get_voice_presets()
 
 
 @app.post("/clone-voice")
 async def clone_voice(request: CloneRequest):
     try:
-        # Simplified call to single clone_voice function
         result = await clone_service.clone_voice(
-            celebrity_id=request.celebrity_id,
+            preset_id=request.preset_id,
             text=request.text,
             mode=request.mode
         )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# ... (inside routes)
+
 
 
 # ============================================================
@@ -208,7 +213,6 @@ if os.path.isdir(FRONTEND_DIR):
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Serve index.html for all non-API routes (SPA catch-all)
         file_path = os.path.join(FRONTEND_DIR, full_path)
         if full_path and os.path.isfile(file_path):
             return FileResponse(file_path)

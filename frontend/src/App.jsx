@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Download, Volume2, Mic, MicOff, Music, Globe, Users, Sparkles, Loader2, Type, AudioLines, Square } from 'lucide-react';
+import { Play, Pause, Download, Volume2, Mic, MicOff, Music, Globe, Users, Sparkles, Loader2, Type, AudioLines, Square, Wand2, Upload, FileAudio } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as api from './api';
 
@@ -10,7 +10,35 @@ const TABS = [
   { id: 'clone', label: 'Voice Cloning', icon: Users, gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
 ];
 
-const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8001';
+const API_BASE = import.meta.env.PROD ? '' : 'http://127.0.0.1:8001';
+
+// Fallback data for UI population if backend is unreachable
+const FALLBACK_LANGUAGES = [
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
+  { code: 'fr', name: 'French', flag: '🇫🇷' },
+  { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
+  { code: 'kn', name: 'Kannada', flag: '🇮🇳' },
+  { code: 'ja', name: 'Japanese', flag: '🇯🇵' }
+];
+
+const FALLBACK_GENRES = [
+  { id: 'pop', name: 'Pop', emoji: '🎤' },
+  { id: 'rock', name: 'Rock', emoji: '🎸' },
+  { id: 'lofi', name: 'Lo-Fi', emoji: '☕' },
+  { id: 'bollywood', name: 'Bollywood', emoji: '🎬' }
+];
+
+const FALLBACK_VOICES = [
+  { ShortName: 'en-US-JennyNeural', FriendlyName: 'Jenny (English)', Gender: 'Female', Locale: 'en-US' },
+  { ShortName: 'en-US-GuyNeural', FriendlyName: 'Guy (English)', Gender: 'Male', Locale: 'en-US' },
+  { ShortName: 'hi-IN-SwaraNeural', FriendlyName: 'Swara (Hindi)', Gender: 'Female', Locale: 'hi-IN' }
+];
+
+const FALLBACK_PRESETS = [
+  { id: 'child_girl', name: 'Child Girl', avatar: '👧', description: 'Bright and cheerful', category: 'Age Group' },
+  { id: 'robotic', name: 'Robotic', avatar: '🤖', description: 'Flat mechanical voice', category: 'Tune Style' }
+];
 
 function App() {
   const [activeTab, setActiveTab] = useState('tts');
@@ -36,18 +64,17 @@ function App() {
   const [sourceLang, setSourceLang] = useState('auto');
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationResult, setTranslationResult] = useState(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [inputMode, setInputMode] = useState('text');
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const streamRef = useRef(null);
+  const [translateAudioFile, setTranslateAudioFile] = useState(null);
+
 
   // Clone State
-  const [celebrities, setCelebrities] = useState([]);
-  const [selectedCelebrity, setSelectedCelebrity] = useState('');
+  const [voicePresets, setVoicePresets] = useState([]);
+  const [selectedPreset, setSelectedPreset] = useState('');
   const [cloneText, setCloneText] = useState('');
   const [cloneMode, setCloneMode] = useState('speak');
   const [isCloning, setIsCloning] = useState(false);
+  const [presetCategory, setPresetCategory] = useState('all');
 
   // Audio Player State
   const [currentAudio, setCurrentAudio] = useState(null);
@@ -62,8 +89,18 @@ function App() {
     fetchVoices();
     fetchGenres();
     fetchLanguages();
-    fetchCelebrities();
+    fetchVoicePresets();
   }, []);
+
+  // Clear audio and status when switching tabs
+  useEffect(() => {
+    setCurrentAudio(null);
+    setStatusMessage(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+  }, [activeTab]);
 
   // ============= Audio Element Event Handlers =============
   useEffect(() => {
@@ -144,14 +181,17 @@ function App() {
   const fetchVoices = async () => {
     try {
       const data = await api.get_voices();
-      setVoices(data);
-      // Default to first English voice
-      const defaultVoice = data.find(v => v.Locale.startsWith('en')) || data[0];
+      const voiceData = data && data.length > 0 ? data : FALLBACK_VOICES;
+      setVoices(voiceData);
+      const defaultVoice = voiceData.find(v => v.Locale.startsWith('en')) || voiceData[0];
       if (defaultVoice) setSelectedVoice(defaultVoice.ShortName);
-    } catch (e) { console.error('Failed to fetch voices', e); }
+    } catch (e) {
+      console.error('Failed to fetch voices', e);
+      setVoices(FALLBACK_VOICES);
+      setSelectedVoice(FALLBACK_VOICES[0].ShortName);
+    }
   };
 
-  // Get unique locales for the filter dropdown
   const uniqueLocales = [...new Set(voices.map(v => v.Locale))].sort();
   const filteredVoices = voiceLocaleFilter === 'all'
     ? voices
@@ -160,24 +200,36 @@ function App() {
   const fetchGenres = async () => {
     try {
       const data = await api.get_genres();
-      setGenres(data);
-    } catch (e) { console.error('Failed to fetch genres', e); }
+      setGenres(data && data.length > 0 ? data : FALLBACK_GENRES);
+    } catch (e) {
+      console.error('Failed to fetch genres', e);
+      setGenres(FALLBACK_GENRES);
+    }
   };
 
   const fetchLanguages = async () => {
     try {
       const data = await api.get_languages();
-      setLanguages(data);
-    } catch (e) { console.error('Failed to fetch languages', e); }
+      setLanguages(data && data.length > 0 ? data : FALLBACK_LANGUAGES);
+    } catch (e) {
+      console.error('Failed to fetch languages', e);
+      setLanguages(FALLBACK_LANGUAGES);
+    }
   };
 
-  const fetchCelebrities = async () => {
+  const fetchVoicePresets = async () => {
     try {
-      const data = await api.get_celebrities();
-      setCelebrities(data);
-      if (data.length > 0) setSelectedCelebrity(data[0].id);
-    } catch (e) { console.error('Failed to fetch celebrities', e); }
+      const data = await api.get_voice_presets();
+      const presetData = data && data.length > 0 ? data : FALLBACK_PRESETS;
+      setVoicePresets(presetData);
+      if (presetData.length > 0) setSelectedPreset(presetData[0].id);
+    } catch (e) {
+      console.error('Failed to fetch voice presets', e);
+      setVoicePresets(FALLBACK_PRESETS);
+      setSelectedPreset(FALLBACK_PRESETS[0].id);
+    }
   };
+
 
   // ============= TTS Handler =============
   const handleTTS = async () => {
@@ -201,7 +253,7 @@ function App() {
   const handleSongGenerate = async () => {
     if (!songPrompt) return;
     setIsSongGenerating(true);
-    setStatusMessage({ type: 'info', text: 'Generating your song... This may take up to 2 minutes.' });
+    setStatusMessage({ type: 'info', text: '🎭 Synthesizing Emotional AI Vocals with lyrics & music... This may take a moment.' });
     try {
       const result = await api.generate_song(songPrompt, selectedGenre, 10, songLanguage);
       if (result.status === 'error') {
@@ -244,103 +296,18 @@ function App() {
     }
   };
 
-  // ============= Voice Recording =============
-  const [recordingTime, setRecordingTime] = useState(0);
-  const recordingInterval = useRef(null);
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
 
-      // Reset timer
-      setRecordingTime(0);
-      recordingInterval.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
 
-      // Try to find a supported MIME type
-      const mimeType = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/mp4',
-        'audio/ogg'
-      ].find(type => MediaRecorder.isTypeSupported(type)) || '';
-
-      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Stop timer
-        clearInterval(recordingInterval.current);
-
-        // Stop all media tracks
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-        }
-
-        if (audioChunksRef.current.length === 0) {
-          setStatusMessage({ type: 'error', text: 'No audio recorded. Please try again.' });
-          return;
-        }
-
-        const mimeType = mediaRecorder.mimeType || 'audio/webm';
-        const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        const audioFile = new File([audioBlob], `recording.${ext}`, { type: mimeType });
-
-        setIsTranslating(true);
-        setStatusMessage({ type: 'info', text: 'Processing your recording and translating...' });
-        try {
-          const result = await api.translate_audio(audioFile, targetLang, sourceLang);
-          if (result.status === 'error') {
-            setStatusMessage({ type: 'error', text: result.error });
-            setIsTranslating(false);
-            return;
-          }
-          setTranslationResult(result);
-          setCurrentAudio({ ...result, type: 'translate' });
-          loadAndPlayAudio(result.url);
-          setStatusMessage({ type: 'success', text: `Translated to ${result.target_language}! Playing now.` });
-        } catch (e) {
-          console.error(e);
-          setStatusMessage({ type: 'error', text: 'Translation of recording failed. Make sure FFmpeg is installed.' });
-        } finally {
-          setIsTranslating(false);
-        }
-      };
-
-      mediaRecorder.start(250); // Collect data every 250ms
-      setIsRecording(true);
-      setStatusMessage({ type: 'info', text: '🔴 Recording... Click stop when done speaking.' });
-    } catch (e) {
-      console.error('Mic error:', e);
-      setStatusMessage({ type: 'error', text: 'Microphone access denied. Please allow it in browser settings.' });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
 
   // ============= Voice Cloning Handler =============
   const handleClone = async () => {
-    if (!selectedCelebrity || !cloneText) return;
+    if (!selectedPreset || !cloneText) return;
     setIsCloning(true);
-    setStatusMessage({ type: 'info', text: `Generating ${cloneMode === 'sing' ? 'singing' : 'speech'} in celebrity voice...` });
+    const preset = voicePresets.find(p => p.id === selectedPreset);
+    setStatusMessage({ type: 'info', text: `Generating ${cloneMode === 'sing' ? 'singing' : 'speech'} in ${preset?.name || 'selected'} voice...` });
     try {
-      const result = await api.clone_voice(selectedCelebrity, cloneText, cloneMode);
+      const result = await api.clone_voice(selectedPreset, cloneText, cloneMode);
       if (result.status === 'error') {
         setStatusMessage({ type: 'error', text: result.error });
         setIsCloning(false);
@@ -348,7 +315,7 @@ function App() {
       }
       setCurrentAudio({ ...result, type: 'clone' });
       loadAndPlayAudio(result.url);
-      setStatusMessage({ type: 'success', text: `Voice cloned as ${result.celebrity}! Playing now.` });
+      setStatusMessage({ type: 'success', text: 'Voice cloned successfully! Playing now.' });
     } catch (e) {
       console.error(e);
       setStatusMessage({ type: 'error', text: 'Voice cloning failed. Please try again.' });
@@ -356,6 +323,13 @@ function App() {
       setIsCloning(false);
     }
   };
+
+  // ============= Filtered presets =============
+  const filteredPresets = presetCategory === 'all'
+    ? voicePresets
+    : voicePresets.filter(p => p.category === presetCategory);
+
+
 
   // ============= Render =============
   const activeTabData = TABS.find(t => t.id === activeTab);
@@ -374,7 +348,7 @@ function App() {
       <nav className="navbar">
         <div className="logo">
           <AudioLines size={28} />
-          <span>ELEVEN.AI</span>
+          <span>VaniverseAI</span>
         </div>
         <div className="nav-badge">AI Audio Platform</div>
       </nav>
@@ -456,7 +430,6 @@ function App() {
                     <option value="de">🇩🇪 German</option>
                     <option value="ja">🇯🇵 Japanese</option>
                     <option value="ko">🇰🇷 Korean</option>
-                    <option value="zh">🇨🇳 Chinese</option>
                     <option value="ar">🇸🇦 Arabic</option>
                     <option value="ru">🇷🇺 Russian</option>
                   </select>
@@ -492,7 +465,7 @@ function App() {
                   <Music size={24} color="#ec4899" />
                   <div>
                     <h2>AI Song Generator</h2>
-                    <p className="card-subtitle">Create unique music from text descriptions</p>
+                    <p className="card-subtitle">Generate lyrics with vocals & background music</p>
                   </div>
                 </div>
                 <div className="form-group">
@@ -533,9 +506,15 @@ function App() {
                     ))}
                   </div>
                 </div>
+
+                <div className="music-note-banner">
+                  <Music size={16} />
+                  <span>Songs include generated background music mixed with AI vocals</span>
+                </div>
+
                 <button className="btn btn-pink" onClick={handleSongGenerate} disabled={isSongGenerating || !songPrompt}>
                   {isSongGenerating ? <Loader2 size={20} className="spin" /> : <Music size={20} />}
-                  {isSongGenerating ? 'Creating Song...' : 'Generate Song'}
+                  {isSongGenerating ? 'Creating Song with Music...' : 'Generate Song 🎵'}
                 </button>
               </div>
             </motion.div>
@@ -549,17 +528,8 @@ function App() {
                   <Globe size={24} color="#3b82f6" />
                   <div>
                     <h2>Voice Translator</h2>
-                    <p className="card-subtitle">Translate text or voice to any language</p>
+                    <p className="card-subtitle">Translate text to any language with AI speech</p>
                   </div>
-                </div>
-
-                <div className="mode-toggle">
-                  <button className={`mode-btn ${inputMode === 'text' ? 'active' : ''}`} onClick={() => setInputMode('text')}>
-                    <Type size={16} /> Text Input
-                  </button>
-                  <button className={`mode-btn ${inputMode === 'mic' ? 'active' : ''}`} onClick={() => setInputMode('mic')}>
-                    <Mic size={16} /> Voice Input
-                  </button>
                 </div>
 
                 <div className="form-group">
@@ -576,41 +546,15 @@ function App() {
                   </select>
                 </div>
 
-                {inputMode === 'text' ? (
-                  <div className="form-group">
-                    <label>ENTER TEXT TO TRANSLATE</label>
-                    <textarea
-                      placeholder="Type something... e.g., Hello, how are you today?"
-                      value={translateInputText}
-                      onChange={(e) => setTranslateInputText(e.target.value)}
-                      rows={4}
-                    />
-                  </div>
-                ) : (
-                  <div className="form-group">
-                    <label>RECORD YOUR VOICE</label>
-                    <div className="mic-area">
-                      {isRecording ? (
-                        <button className="mic-btn recording" onClick={stopRecording}>
-                          <Square size={28} />
-                          <div className="pulse-ring"></div>
-                        </button>
-                      ) : (
-                        <button className="mic-btn" onClick={startRecording} disabled={isTranslating}>
-                          <Mic size={32} />
-                        </button>
-                      )}
-                      <p className="mic-label">
-                        {isRecording
-                          ? `🔴 Recording... ${Math.floor(recordingTime / 60)}:${(recordingTime % 60).toString().padStart(2, '0')} (Click to stop)`
-                          : isTranslating
-                            ? 'Processing recording...'
-                            : 'Click to start recording'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>ENTER TEXT TO TRANSLATE</label>
+                  <textarea
+                    placeholder="Type something... e.g., Hello, how are you today?"
+                    value={translateInputText}
+                    onChange={(e) => setTranslateInputText(e.target.value)}
+                    rows={4}
+                  />
+                </div>
 
                 <div className="form-group">
                   <label>TARGET LANGUAGE</label>
@@ -628,12 +572,10 @@ function App() {
                   </div>
                 </div>
 
-                {inputMode === 'text' && (
-                  <button className="btn btn-blue" onClick={handleTranslateText} disabled={isTranslating || !translateInputText}>
-                    {isTranslating ? <Loader2 size={20} className="spin" /> : <Globe size={20} />}
-                    {isTranslating ? 'Translating...' : 'Translate & Speak'}
-                  </button>
-                )}
+                <button className="btn btn-blue" onClick={handleTranslateText} disabled={isTranslating || !translateInputText}>
+                  {isTranslating ? <Loader2 size={20} className="spin" /> : <Globe size={20} />}
+                  {isTranslating ? 'Translating...' : 'Translate & Speak'}
+                </button>
 
                 {translationResult && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="translation-result">
@@ -651,6 +593,7 @@ function App() {
             </motion.div>
           )}
 
+
           {/* ====== Voice Cloning ====== */}
           {activeTab === 'clone' && (
             <motion.div key="clone" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
@@ -659,23 +602,38 @@ function App() {
                   <Users size={24} color="#f59e0b" />
                   <div>
                     <h2>Voice Cloning</h2>
-                    <p className="card-subtitle">Speak or sing in the style of famous celebrities</p>
+                    <p className="card-subtitle">Speak or sing in different age groups & voice styles</p>
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label>SELECT CELEBRITY VOICE</label>
+                  <label>FILTER BY CATEGORY</label>
+                  <div className="mode-toggle">
+                    <button className={`mode-btn ${presetCategory === 'all' ? 'active' : ''}`} onClick={() => setPresetCategory('all')}>
+                      All
+                    </button>
+                    <button className={`mode-btn ${presetCategory === 'Age Group' ? 'active' : ''}`} onClick={() => setPresetCategory('Age Group')}>
+                      👤 Age Groups
+                    </button>
+                    <button className={`mode-btn ${presetCategory === 'Tune Style' ? 'active' : ''}`} onClick={() => setPresetCategory('Tune Style')}>
+                      🎵 Tune Styles
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>SELECT VOICE STYLE ({filteredPresets.length} available)</label>
                   <div className="celeb-grid">
-                    {celebrities.map((celeb) => (
+                    {filteredPresets.map((preset) => (
                       <div
-                        key={celeb.id}
-                        className={`celeb-chip ${selectedCelebrity === celeb.id ? 'active' : ''}`}
-                        onClick={() => setSelectedCelebrity(celeb.id)}
+                        key={preset.id}
+                        className={`celeb-chip ${selectedPreset === preset.id ? 'active' : ''}`}
+                        onClick={() => setSelectedPreset(preset.id)}
                       >
-                        <span className="celeb-avatar">{celeb.avatar}</span>
+                        <span className="celeb-avatar">{preset.avatar}</span>
                         <div className="celeb-info">
-                          <span className="celeb-name">{celeb.name}</span>
-                          <span className="celeb-desc">{celeb.description}</span>
+                          <span className="celeb-name">{preset.name}</span>
+                          <span className="celeb-desc">{preset.description}</span>
                         </div>
                       </div>
                     ))}
@@ -699,7 +657,7 @@ function App() {
                   <textarea
                     placeholder={cloneMode === 'sing'
                       ? "Enter song lyrics...\nTwinkle twinkle little star\nHow I wonder what you are"
-                      : "Enter text for the celebrity to speak..."
+                      : "Enter text for the voice to speak..."
                     }
                     value={cloneText}
                     onChange={(e) => setCloneText(e.target.value)}
@@ -707,7 +665,7 @@ function App() {
                   />
                 </div>
 
-                <button className="btn btn-amber" onClick={handleClone} disabled={isCloning || !cloneText || !selectedCelebrity}>
+                <button className="btn btn-amber" onClick={handleClone} disabled={isCloning || !cloneText || !selectedPreset}>
                   {isCloning ? <Loader2 size={20} className="spin" /> : <Users size={20} />}
                   {isCloning ? 'Generating...' : `Clone & ${cloneMode === 'sing' ? 'Sing' : 'Speak'}`}
                 </button>
@@ -718,7 +676,7 @@ function App() {
 
         {/* ====== Audio Player ====== */}
         <AnimatePresence>
-          {currentAudio && (
+          {currentAudio && currentAudio.type === activeTab && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -734,7 +692,7 @@ function App() {
                     {currentAudio.type === 'tts' && 'Speech Synthesis'}
                     {currentAudio.type === 'song' && 'Generated Song'}
                     {currentAudio.type === 'translate' && 'Translation'}
-                    {currentAudio.type === 'clone' && `${currentAudio.celebrity || 'Celebrity'} Voice`}
+                    {currentAudio.type === 'clone' && `${currentAudio.preset_name || 'Cloned'} Voice`}
                   </h3>
                   <p>{currentAudio.filename}</p>
                 </div>
@@ -774,7 +732,7 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p>ELEVEN.AI — Powered by AI • Free & Open Source</p>
+        <p>VaniverseAI — Powered by AI • Free & Open Source</p>
       </footer>
     </div>
   );
