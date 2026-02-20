@@ -13,3 +13,6 @@ SpeechRecognition
 deep-translator
 pydub
 imageio-ffmpeg
+sqlalchemy
+passlib[bcrypt]
+bcrypt

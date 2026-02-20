@@ -547,6 +547,35 @@ async def generate_song(prompt: str, genre: str = "", duration: int = 10, langua
     }
 
 
+async def generate_lyrics_with_translation(prompt: str, genre: str = "", duration: int = 10, language: str = "en", target_lang: str = None):
+    """
+    Generate lyrics and potentially translate them at the same time.
+    Returns both original and translated lyrics.
+    """
+    # 1. Generate core response
+    result = await generate_song(prompt, genre, duration, language)
+    
+    if result["status"] == "error":
+        return result
+    
+    # 2. Add translation if requested
+    if target_lang and target_lang != language:
+        try:
+            # Map 'zh' to 'zh-CN' for deep-translator compatibility
+            trans_lang = "zh-CN" if target_lang == "zh" else target_lang
+            translator = GoogleTranslator(source='auto', target=trans_lang)
+            translated_lyrics = translator.translate(result["lyrics"])
+            result["translated_lyrics"] = translated_lyrics
+            result["target_language"] = target_lang
+        except Exception as e:
+            print(f"Lyrics simultaneous translation failed: {e}")
+            result["translated_lyrics"] = None
+    else:
+        result["translated_lyrics"] = None
+        
+    return result
+
+
 def get_genres():
     """Return available music genres."""
     return [

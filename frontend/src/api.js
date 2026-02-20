@@ -1,12 +1,23 @@
 import axios from 'axios';
 
 // In production (Render), use same origin. In dev, use localhost:8001
-const API_BASE_URL = import.meta.env.PROD ? '' : 'http://127.0.0.1:8001';
+const API_BASE_URL = import.meta.env.PROD ? '' : 'http://127.0.0.1:8003';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 120000,
 });
+
+// ============= Authentication =============
+export const login = async (email, password) => {
+    const response = await api.post('/login', { email, password });
+    return response.data;
+};
+
+export const signup = async (username, email, password) => {
+    const response = await api.post('/signup', { username, email, password });
+    return response.data;
+};
 
 // ============= Text-to-Speech =============
 export const get_voices = async () => {
@@ -19,14 +30,14 @@ export const synthesize = async (text, voice) => {
     return response.data;
 };
 
-// ============= Song Generation =============
+// ============= Lyrics Generation =============
 export const get_genres = async () => {
     const response = await api.get('/genres');
     return response.data;
 };
 
-export const generate_song = async (prompt, genre = '', duration = 10, language = 'en') => {
-    const response = await api.post('/generate-song', { prompt, genre, duration, language });
+export const generate_lyrics = async (prompt, genre = '', duration = 10, language = 'en', target_lang = null) => {
+    const response = await api.post('/generate-lyrics', { prompt, genre, duration, language, target_lang });
     return response.data;
 };
 

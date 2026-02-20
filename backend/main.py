@@ -1,19 +1,27 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
+from sqlalchemy.orm import Session
 import tts_service
-import song_service
+import lyrics_service
 import translate_service
 import clone_service
+import database, models
+from passlib.context import CryptContext
 
 import os
 import uuid
 import shutil
 
+# Initialize Database
+models.Base.metadata.create_all(bind=database.engine)
+
 app = FastAPI(title="VaniverseAI - AI Audio Platform")
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # Enable CORS
 app.add_middleware(
@@ -33,16 +41,34 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Request Models
 # ============================================================
 
+class SignupRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+
+    class Config:
+        from_attributes = True
+
 class TTSRequest(BaseModel):
     text: str
     voice: str
 
 
-class SongRequest(BaseModel):
+class LyricsRequest(BaseModel):
     prompt: str
     genre: str = ""
     duration: int = 10
     language: str = "en"
+    target_lang: Optional[str] = None
 
 
 class TranslateTextRequest(BaseModel):
@@ -57,6 +83,57 @@ class CloneRequest(BaseModel):
     mode: str = "speak"  # "speak" or "sing"
 
 
+
+
+# ============================================================
+# Authentication
+# ============================================================
+
+import re
+
+@app.post("/signup")
+def signup(request: SignupRequest, db: Session = Depends(database.get_db)):
+    try:
+        # Password Validation: 8-16 chars, upper, lower, digit, special symbol
+        if not (8 <= len(request.password) <= 16):
+            raise HTTPException(status_code=400, detail="Password must be between 8 and 16 characters")
+        
+        if not re.search(r"[a-z]", request.password) or \
+           not re.search(r"[A-Z]", request.password) or \
+           not re.search(r"\d", request.password) or \
+           not re.search(r"[@$!%*?&.#]", request.password):
+            raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&.#)")
+
+        db_user = db.query(models.User).filter(models.User.email == request.email).first()
+        if db_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # pbkdf2_sha256 has no 72-byte limit
+        hashed_password = pwd_context.hash(request.password)
+        
+        new_user = models.User(
+            username=request.username,
+            email=request.email,
+            hashed_password=hashed_password
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return {"status": "success", "username": new_user.username, "email": new_user.email, "id": new_user.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Signup error: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+@app.post("/login", response_model=UserResponse)
+def login(request: LoginRequest, db: Session = Depends(database.get_db)):
+    user = db.query(models.User).filter(models.User.email == request.email).first()
+    if not user or not pwd_context.verify(request.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+    
+    return user
 
 
 # ============================================================
@@ -91,27 +168,28 @@ async def synthesize(request: TTSRequest):
 
 
 # ============================================================
-# Song Generation
+# Lyrics Generation (formerly Song Generation)
 # ============================================================
 
 @app.get("/genres")
 async def get_genres():
-    return song_service.get_genres()
+    return lyrics_service.get_genres()
 
 
 @app.get("/singing-voices")
 async def get_singing_voices():
-    return song_service.get_singing_voices()
+    return lyrics_service.get_singing_voices()
 
 
-@app.post("/generate-song")
-async def generate_song(request: SongRequest):
+@app.post("/generate-lyrics")
+async def generate_lyrics(request: LyricsRequest):
     try:
-        result = await song_service.generate_song(
+        result = await lyrics_service.generate_lyrics_with_translation(
             prompt=request.prompt,
             genre=request.genre,
             duration=request.duration,
-            language=request.language
+            language=request.language,
+            target_lang=request.target_lang
         )
         return result
     except Exception as e:
@@ -221,5 +299,5 @@ if os.path.isdir(FRONTEND_DIR):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8001))
+    port = int(os.environ.get("PORT", 8003))
     uvicorn.run(app, host="0.0.0.0", port=port)
