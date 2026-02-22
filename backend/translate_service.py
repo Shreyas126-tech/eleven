@@ -153,6 +153,9 @@ async def translate_text_input(text: str, target_lang: str, source_lang: str = "
     1. Translate text
     2. Synthesize in target language voice
     """
+    if target_lang == "all":
+        return await translate_to_all_languages(text, source_lang)
+
     # Step 1: Translate
     try:
         translator = GoogleTranslator(source=source_lang, target=target_lang)
@@ -186,4 +189,45 @@ async def translate_text_input(text: str, target_lang: str, source_lang: str = "
         "target_language": lang_info["name"],
         "filename": filename,
         "url": f"/static/audio/{filename}"
+    }
+
+
+async def translate_to_all_languages(text: str, source_lang: str = "auto"):
+    """
+    Simultaneously translate and synthesize voice for all supported languages.
+    """
+    results = []
+    
+    async def translate_one(lang_code):
+        try:
+            translator = GoogleTranslator(source=source_lang, target=lang_code)
+            translated_text = translator.translate(text)
+            
+            lang_info = LANGUAGE_VOICES[lang_code]
+            voice = lang_info["voice"]
+            
+            filename = f"trans_all_{lang_code}_{uuid.uuid4().hex[:4]}.mp3"
+            filepath = os.path.join(OUTPUT_DIR, filename)
+            
+            communicate = edge_tts.Communicate(translated_text, voice)
+            await communicate.save(filepath)
+            
+            return {
+                "language": lang_info["name"],
+                "code": lang_code,
+                "translated_text": translated_text,
+                "url": f"/static/audio/{filename}"
+            }
+        except Exception as e:
+            return {"language": lang_code, "status": "error", "error": str(e)}
+
+    # Run all translations in parallel
+    tasks = [translate_one(lang_code) for lang_code in LANGUAGE_VOICES.keys()]
+    results = await asyncio.gather(*tasks)
+    
+    return {
+        "status": "success",
+        "original_text": text,
+        "results": results,
+        "mode": "all"
     }

@@ -16,6 +16,13 @@ import os
 import uuid
 import shutil
 
+import logging
+import traceback
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Initialize Database
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -123,7 +130,8 @@ def signup(request: SignupRequest, db: Session = Depends(database.get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Signup error: {e}")
+        logger.error(f"Signup error: {e}")
+        logger.error(traceback.format_exc())
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
@@ -250,20 +258,162 @@ async def translate_text(request: TranslateTextRequest):
 # Voice Cloning (Age Group & Tune Presets)
 # ============================================================
 
+import story_service
+import podcast_service
+import music_service
+import studio_service
+import analysis_service
+import clone_service
+
+# ============================================================
+# Translation Enhancements
+# ============================================================
+
+@app.post("/translate-to-all")
+async def translate_to_all(request: TranslateTextRequest):
+    try:
+        return await translate_service.translate_to_all_languages(request.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================
+# Voice Cloning Endpoints
+# ============================================================
+
 @app.get("/voice-presets")
 async def get_voice_presets():
     return clone_service.get_voice_presets()
 
-
 @app.post("/clone-voice")
 async def clone_voice(request: CloneRequest):
     try:
-        result = await clone_service.clone_voice(
-            preset_id=request.preset_id,
-            text=request.text,
-            mode=request.mode
-        )
-        return result
+        return await clone_service.clone_voice(request.preset_id, request.text, request.mode)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Request Models (Continued)
+class StoryRequest(BaseModel):
+    genre: str
+    topic: str = ""
+    language: str = "en"
+    age_group: str = "child"
+    duration: int = 2
+
+class PodcastRequest(BaseModel):
+    topic: str
+    duration: int = 1
+    voices: Optional[list] = None
+
+class MusicRequest(BaseModel):
+    instrument: str
+    duration: int = 10
+
+class AnalyzeRequest(BaseModel):
+    text: Optional[str] = None
+
+# ============================================================
+# Advanced AI Features
+# ============================================================
+
+@app.post("/generate-story")
+async def generate_story(request: StoryRequest):
+    try:
+        return await story_service.generate_story(request.genre, request.topic, request.age_group, request.language, request.duration)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/story-genres")
+async def get_story_genres():
+    return story_service.get_story_genres()
+
+@app.post("/generate-podcast")
+async def generate_podcast(request: PodcastRequest):
+    try:
+        return await podcast_service.generate_podcast(request.topic, request.duration, request.voices)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/podcast-topics")
+async def get_podcast_topics():
+    return podcast_service.get_podcast_topics()
+
+@app.post("/generate-music")
+async def generate_music(request: MusicRequest):
+    try:
+        return await music_service.generate_music(request.instrument, request.duration)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-ringtone")
+async def generate_ringtone():
+    try:
+        return await music_service.generate_ringtone()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/instruments")
+async def get_instruments():
+    return music_service.get_instruments()
+
+@app.post("/studio-process")
+async def studio_process(
+    audio: UploadFile = File(...),
+    effect: str = Form(...)
+):
+    temp_path = f"temp_{uuid.uuid4().hex[:8]}_{audio.filename}"
+    try:
+        with open(temp_path, "wb") as f:
+            f.write(await audio.read())
+        return await studio_service.process_audio(temp_path, effect)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+@app.post("/audio-mashup")
+async def audio_mashup(
+    audio1: UploadFile = File(...),
+    audio2: UploadFile = File(...),
+    style: str = Form("smooth"),
+    balance: float = Form(0.5)
+):
+    path1 = f"temp1_{uuid.uuid4().hex[:8]}.mp3"
+    path2 = f"temp2_{uuid.uuid4().hex[:8]}.mp3"
+    try:
+        with open(path1, "wb") as f1: f1.write(await audio1.read())
+        with open(path2, "wb") as f2: f2.write(await audio2.read())
+        return await studio_service.create_mashup(path1, path2, style, balance)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for p in [path1, path2]:
+            if os.path.exists(p): os.remove(p)
+
+@app.post("/analyze-mood")
+async def analyze_mood(
+    text: Optional[str] = Form(None),
+    audio: Optional[UploadFile] = File(None)
+):
+    try:
+        if audio:
+            # Generate a proper extension based on original filename if possible
+            ext = os.path.splitext(audio.filename)[1] or ".mp3"
+            temp_path = f"temp_mood_{uuid.uuid4().hex[:8]}{ext}"
+            with open(temp_path, "wb") as f:
+                f.write(await audio.read())
+            try:
+                res = await analysis_service.analyze_audio_mood(temp_path)
+                return res
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+        elif text:
+            # Return full percentage breakdown
+            mood_result = analysis_service.analyze_text_mood(text)
+            return {"status": "success", "mood": mood_result}
+        else:
+            raise HTTPException(status_code=400, detail="Either text or audio is required")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

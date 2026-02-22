@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Download, Volume2, Music, Globe, Users, Sparkles, Loader2, Type, AudioLines, Square, Wand2, Upload, FileAudio, Languages } from 'lucide-react';
+import { Play, Pause, Download, Volume2, Music, Globe, Users, Sparkles, Loader2, Type, AudioLines, Square, Wand2, Upload, FileAudio, Languages, Brain, Mic2, Speaker, Copy, Zap } from 'lucide-react';
 import * as api from '../api';
 
 const TABS = [
     { id: 'tts', label: 'Text to Speech', icon: Volume2, gradient: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' },
     { id: 'lyrics', label: 'Lyrics Generator', icon: Music, gradient: 'linear-gradient(135deg, #ec4899, #be185d)' },
+    { id: 'story', label: 'Story Teller', icon: Wand2, gradient: 'linear-gradient(135deg, #f43f5e, #e11d48)' },
+    { id: 'podcast', label: 'AI Podcast', icon: AudioLines, gradient: 'linear-gradient(135deg, #10b981, #059669)' },
+    { id: 'music', label: 'Music & Beats', icon: Music, gradient: 'linear-gradient(135deg, #8b5cf6, #d946ef)' },
+    { id: 'studio', label: 'Audio Studio', icon: Sparkles, gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)' },
+    { id: 'analysis', label: 'Mood Analysis', icon: Brain, gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
     { id: 'translate', label: 'Translator', icon: Globe, gradient: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' },
+    { id: 'karaoke', label: 'Karaoke Mode', icon: Mic2, gradient: 'linear-gradient(135deg, #f43f5e, #e11d48)' },
     { id: 'clone', label: 'Voice Cloning', icon: Users, gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
 ];
 
@@ -82,6 +88,51 @@ const ModelsPage = () => {
     const [isCloning, setIsCloning] = useState(false);
     const [presetCategory, setPresetCategory] = useState('all');
 
+    // Story State
+    const [storyGenres, setStoryGenres] = useState([]);
+    const [selectedStoryGenre, setSelectedStoryGenre] = useState('');
+    const [storyTopic, setStoryTopic] = useState('');
+    const [storyAgeGroup, setStoryAgeGroup] = useState('child');
+    const [storyLanguage, setStoryLanguage] = useState('en');
+    const [storyDuration, setStoryDuration] = useState(2);
+    const [isStoryGenerating, setIsStoryGenerating] = useState(false);
+
+    // Podcast State
+    const [podcastTopics, setPodcastTopics] = useState([]);
+    const [podcastTopic, setPodcastTopic] = useState('');
+    const [selectedPodcastTopic, setSelectedPodcastTopic] = useState('');
+    const [podcastDuration, setPodcastDuration] = useState(1);
+    const [podcastVoices, setPodcastVoices] = useState(['en-US-GuyNeural', 'en-US-JennyNeural', 'en-US-AriaNeural']);
+    const [isPodcastGenerating, setIsPodcastGenerating] = useState(false);
+
+    // Music State
+    const [instruments, setInstruments] = useState([]);
+    const [selectedInstrument, setSelectedInstrument] = useState('');
+    const [musicDuration, setMusicDuration] = useState(10);
+    const [isMusicGenerating, setIsMusicGenerating] = useState(false);
+    const [isRingtoneGenerating, setIsRingtoneGenerating] = useState(false);
+
+    // Studio State
+    const [studioFile, setStudioFile] = useState(null);
+    const [studioEffect, setStudioEffect] = useState('speed_up');
+    const [isStudioProcessing, setIsStudioProcessing] = useState(false);
+    const [mashupFile1, setMashupFile1] = useState(null);
+    const [mashupFile2, setMashupFile2] = useState(null);
+    const [mashupStyle, setMashupStyle] = useState('smooth');
+    const [mashupBalance, setMashupBalance] = useState(0.5);
+    const [isMashupGenerating, setIsMashupGenerating] = useState(false);
+
+    // Mood Analysis State
+    const [analysisText, setAnalysisText] = useState('');
+    const [analysisFile, setAnalysisFile] = useState(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState(null);
+
+    // Karaoke State
+    const [karaokeLyrics, setKaraokeLyrics] = useState('');
+    const [karaokeGenre, setKaraokeGenre] = useState('pop');
+    const [isKaraokeGenerating, setIsKaraokeGenerating] = useState(false);
+
     // Audio Player State
     const [currentAudio, setCurrentAudio] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -96,6 +147,9 @@ const ModelsPage = () => {
         fetchGenres();
         fetchLanguages();
         fetchVoicePresets();
+        fetchStoryGenres();
+        fetchPodcastTopics();
+        fetchInstruments();
     }, []);
 
     useEffect(() => {
@@ -213,15 +267,164 @@ const ModelsPage = () => {
     };
 
     const fetchVoicePresets = async () => {
+        console.log("Fetching voice presets...");
         try {
             const data = await api.get_voice_presets();
+            console.log("Voice presets data received:", data);
             const presetData = data && data.length > 0 ? data : FALLBACK_PRESETS;
             setVoicePresets(presetData);
             if (presetData.length > 0) setSelectedPreset(presetData[0].id);
         } catch (e) {
+            console.error("Failed to fetch voice presets:", e);
             setVoicePresets(FALLBACK_PRESETS);
             setSelectedPreset(FALLBACK_PRESETS[0].id);
         }
+    };
+
+    const fetchStoryGenres = async () => {
+        try {
+            const data = await api.get_story_genres();
+            setStoryGenres(data || []);
+            if (data?.length > 0) setSelectedStoryGenre(data[0].id);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchPodcastTopics = async () => {
+        try {
+            const data = await api.get_podcast_topics();
+            setPodcastTopics(data || []);
+            if (data?.length > 0) setSelectedPodcastTopic(data[0].id);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchInstruments = async () => {
+        try {
+            const data = await api.get_instruments();
+            setInstruments(data || []);
+            if (data?.length > 0) setSelectedInstrument(data[0].id);
+        } catch (e) { console.error(e); }
+    };
+
+    const handleStoryGenerate = async () => {
+        if (!selectedStoryGenre && !storyTopic) return;
+        setIsStoryGenerating(true);
+        setStatusMessage({ type: 'info', text: '📖 Weaving your story...' });
+        try {
+            const result = await api.generate_story(selectedStoryGenre, storyTopic, storyAgeGroup, storyLanguage, storyDuration);
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Story generation failed.' });
+                return;
+            }
+            setCurrentAudio({ ...result, type: 'story' });
+            if (result.url) loadAndPlayAudio(result.url);
+            setStatusMessage({ type: 'success', text: 'Story ready!' });
+        } catch (e) {
+            console.error('Story generation error:', e);
+            const msg = e?.response?.data?.detail || e?.message || 'Story generation failed.';
+            setStatusMessage({ type: 'error', text: msg });
+        }
+        finally { setIsStoryGenerating(false); }
+    };
+
+    const handlePodcastGenerate = async () => {
+        const topic = podcastTopic || (selectedPodcastTopic ? podcastTopics.find(t => t.id === selectedPodcastTopic)?.label : '');
+        if (!topic) return;
+        setIsPodcastGenerating(true);
+        setStatusMessage({ type: 'info', text: '🎙️ Mixing your podcast...' });
+        try {
+            const result = await api.generate_podcast(topic, podcastDuration, podcastVoices);
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Podcast failed.' });
+                return;
+            }
+            setCurrentAudio({ ...result, type: 'podcast' });
+            loadAndPlayAudio(result.url);
+            setStatusMessage({ type: 'success', text: 'Podcast ready!' });
+        } catch (e) { setStatusMessage({ type: 'error', text: 'Podcast failed.' }); }
+        finally { setIsPodcastGenerating(false); }
+    };
+
+    const handleMusicGenerate = async () => {
+        if (!selectedInstrument) return;
+        setIsMusicGenerating(true);
+        setStatusMessage({ type: 'info', text: '🎹 Tuning instruments, composing melody...' });
+        try {
+            const result = await api.generate_music(selectedInstrument, musicDuration);
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Music generation failed.' });
+                return;
+            }
+            setCurrentAudio({ ...result, type: 'music' });
+            loadAndPlayAudio(result.url);
+            setStatusMessage({ type: 'success', text: 'Music composed successfully!' });
+        } catch (e) { setStatusMessage({ type: 'error', text: e?.response?.data?.detail || 'Music composition failed.' }); }
+        finally { setIsMusicGenerating(false); }
+    };
+
+    const handleRingtoneGenerate = async () => {
+        setIsRingtoneGenerating(true);
+        setStatusMessage({ type: 'info', text: '🔔 Creating short beat loop...' });
+        try {
+            const result = await api.generate_ringtone();
+            setCurrentAudio({ ...result, type: 'ringtone' });
+            loadAndPlayAudio(result.url);
+            setStatusMessage({ type: 'success', text: 'Ringtone created!' });
+        } catch (e) { setStatusMessage({ type: 'error', text: 'Ringtone creation failed.' }); }
+        finally { setIsRingtoneGenerating(false); }
+    };
+
+    const handleStudioProcess = async () => {
+        if (!studioFile) return;
+        setIsStudioProcessing(true);
+        setStatusMessage({ type: 'info', text: '🏚️ Applying professional studio effects...' });
+        try {
+            const result = await api.studio_process(studioFile, studioEffect);
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Processing failed.' });
+                return;
+            }
+            setCurrentAudio({ ...result, type: 'studio' });
+            loadAndPlayAudio(result.url);
+            setStatusMessage({ type: 'success', text: 'Audio processing complete!' });
+        } catch (e) {
+            console.error('Studio processing error:', e);
+            const msg = e?.response?.data?.detail || e?.message || 'Audio processing failed.';
+            setStatusMessage({ type: 'error', text: msg });
+        }
+        finally { setIsStudioProcessing(false); }
+    };
+
+    const handleMashup = async () => {
+        if (!mashupFile1 || !mashupFile2) return;
+        setIsMashupGenerating(true);
+        setStatusMessage({ type: 'info', text: '🎵 Creating mashup...' });
+        try {
+            const result = await api.audio_mashup(mashupFile1, mashupFile2, mashupStyle, mashupBalance);
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Mashup failed.' });
+                return;
+            }
+            setCurrentAudio({ ...result, type: 'mashup' });
+            loadAndPlayAudio(result.url);
+            setStatusMessage({ type: 'success', text: 'Mashup generated!' });
+        } catch (e) {
+            console.error('Mashup error:', e);
+            const msg = e?.response?.data?.detail || e?.message || 'Mashup failed.';
+            setStatusMessage({ type: 'error', text: msg });
+        }
+        finally { setIsMashupGenerating(false); }
+    };
+
+    const handleMoodAnalyze = async () => {
+        if (!analysisText && !analysisFile) return;
+        setIsAnalyzing(true);
+        setStatusMessage({ type: 'info', text: '🧠 Analyzing patterns, detecting mood...' });
+        try {
+            const result = await api.analyze_mood(analysisText, analysisFile);
+            setAnalysisResult(result.mood);
+            setStatusMessage({ type: 'success', text: 'Mood analysis complete!' });
+        } catch (e) { setStatusMessage({ type: 'error', text: 'Analysis failed.' }); }
+        finally { setIsAnalyzing(false); }
     };
 
     const handleTTS = async () => {
@@ -239,6 +442,8 @@ const ModelsPage = () => {
             setIsGenerating(false);
         }
     };
+
+
 
     const handleLyricsGenerate = async () => {
         if (!lyricsPrompt) return;
@@ -263,12 +468,21 @@ const ModelsPage = () => {
     const handleTranslateText = async () => {
         if (!translateInputText || !targetLang) return;
         setIsTranslating(true);
-        setStatusMessage({ type: 'info', text: 'Translating...' });
+        setStatusMessage({ type: 'info', text: targetLang === 'all' ? 'Processing universal translation...' : 'Translating...' });
         try {
-            const result = await api.translate_text(translateInputText, targetLang, sourceLang);
+            let result;
+            if (targetLang === 'all') {
+                result = await api.translate_to_all(translateInputText);
+            } else {
+                result = await api.translate_text(translateInputText, targetLang, sourceLang);
+            }
             setTranslationResult(result);
-            setCurrentAudio({ ...result, type: 'translate' });
-            loadAndPlayAudio(result.url);
+            if (result.url) {
+                setCurrentAudio({ ...result, type: 'translate' });
+                loadAndPlayAudio(result.url);
+            } else {
+                setCurrentAudio({ ...result, type: 'translate_all' });
+            }
             setStatusMessage({ type: 'success', text: 'Translation complete!' });
         } catch (e) {
             setStatusMessage({ type: 'error', text: 'Translation failed.' });
@@ -277,17 +491,44 @@ const ModelsPage = () => {
         }
     };
 
+    const handleKaraokeGenerate = async () => {
+        if (!karaokeLyrics) return;
+        setIsKaraokeGenerating(true);
+        setStatusMessage({ type: 'info', text: '🎤 Preparing your stage, generating vocals and beats...' });
+        try {
+            const result = await api.generate_lyrics(karaokeLyrics, karaokeGenre, 10, 'en');
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Karaoke generation failed.' });
+                return;
+            }
+            setCurrentAudio({ ...result, type: 'karaoke' });
+            if (result.url) loadAndPlayAudio(result.url);
+            setStatusMessage({ type: 'success', text: 'Karaoke track ready! Sing along!' });
+        } catch (e) {
+            console.error('Karaoke generation error:', e);
+            const msg = e?.response?.data?.detail || e?.message || 'Karaoke generation failed.';
+            setStatusMessage({ type: 'error', text: msg });
+        }
+        finally { setIsKaraokeGenerating(false); }
+    };
+
     const handleClone = async () => {
         if (!selectedPreset || !cloneText) return;
         setIsCloning(true);
-        setStatusMessage({ type: 'info', text: 'Cloning voice...' });
+        setStatusMessage({ type: 'info', text: '🎭 Cloning voice...' });
         try {
             const result = await api.clone_voice(selectedPreset, cloneText, cloneMode);
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Cloning failed.' });
+                return;
+            }
             setCurrentAudio({ ...result, type: 'clone' });
-            loadAndPlayAudio(result.url);
+            if (result.url) loadAndPlayAudio(result.url);
             setStatusMessage({ type: 'success', text: 'Voice cloned successfully!' });
         } catch (e) {
-            setStatusMessage({ type: 'error', text: 'Cloning failed.' });
+            console.error('Clone error:', e);
+            const msg = e?.response?.data?.detail || e?.message || 'Cloning failed.';
+            setStatusMessage({ type: 'error', text: msg });
         } finally {
             setIsCloning(false);
         }
@@ -473,6 +714,430 @@ const ModelsPage = () => {
                                 </div>
                             )}
 
+                            {/* STORY TAB */}
+                            {activeTab === 'story' && (
+                                <div className="space-y-6">
+                                    {/* ... Story UI ... */}
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Story Topic / Prompt</label>
+                                            <textarea
+                                                className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:outline-none focus:border-vpurple h-24 resize-none"
+                                                placeholder="What should the story be about?"
+                                                value={storyTopic}
+                                                onChange={(e) => setStoryTopic(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Story Genre</label>
+                                                <select
+                                                    className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:outline-none"
+                                                    value={selectedStoryGenre}
+                                                    onChange={(e) => setSelectedStoryGenre(e.target.value)}
+                                                >
+                                                    {storyGenres.map(g => (
+                                                        <option key={g.id} value={g.id}>{g.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Audience Age Group</label>
+                                                        <select
+                                                            className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:outline-none"
+                                                            value={storyAgeGroup}
+                                                            onChange={(e) => setStoryAgeGroup(e.target.value)}
+                                                        >
+                                                            <option value="child">👧 Kid (Comic/Moral)</option>
+                                                            <option value="teen">🧑‍🎤 Teen (Mystery/Thriller)</option>
+                                                            <option value="adult">👨 Adult (Suspense/Horror)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Story Duration</label>
+                                                        <div className="grid grid-cols-4 gap-2">
+                                                            {[2, 5, 10, 15].map(d => (
+                                                                <button
+                                                                    key={d}
+                                                                    onClick={() => setStoryDuration(d)}
+                                                                    className={`p-3 rounded-lg border font-bold text-xs transition-all ${storyDuration === d ? 'bg-vpurple text-white border-vpurple shadow-lg shadow-vpurple/20' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-700'}`}
+                                                                >
+                                                                    {d} min
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Language</label>
+                                                        <select
+                                                            className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:outline-none"
+                                                            value={storyLanguage}
+                                                            onChange={(e) => setStoryLanguage(e.target.value)}
+                                                        >
+                                                            {languages.map(l => (
+                                                                <option key={l.code} value={l.code}>{l.flag} {l.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div className="p-4 bg-slate-950/30 border border-slate-800 rounded-2xl">
+                                                        <p className="text-[10px] text-slate-500 leading-relaxed italic">
+                                                            Longer durations will generate deeper plot twists and multi-segment narratives for a complete experience.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleStoryGenerate}
+                                        disabled={isStoryGenerating || (!selectedStoryGenre && !storyTopic)}
+                                        className="w-full bg-vpurple hover:bg-vpurple-dark text-white font-bold py-5 rounded-2xl flex items-center justify-center space-x-2 shadow-lg shadow-vpurple/20 transition-all"
+                                    >
+                                        {isStoryGenerating ? <Loader2 className="animate-spin" size={24} /> : <Wand2 size={20} />}
+                                        <span>{isStoryGenerating ? 'Generating Tale...' : 'Tell Me a Story'}</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* PODCAST TAB */}
+                            {activeTab === 'podcast' && (
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Podcast Topic</label>
+                                            <textarea
+                                                className="w-full bg-slate-950 border border-emerald-800/30 text-white p-4 rounded-xl focus:outline-none focus:border-emerald-500 h-24 resize-none"
+                                                placeholder="What should the hosts discuss? (e.g. The future of autonomous vehicles)"
+                                                value={podcastTopic}
+                                                onChange={(e) => setPodcastTopic(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-4">
+                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Episode Length</label>
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {[1, 3, 5, 10].map(d => (
+                                                        <button
+                                                            key={d}
+                                                            onClick={() => setPodcastDuration(d)}
+                                                            className={`p-3 rounded-lg border font-bold text-xs transition-all ${podcastDuration === d ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-700'}`}
+                                                        >
+                                                            {d} min
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div className="pt-2">
+                                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Speaker Voices</label>
+                                                    <div className="space-y-2 mt-2">
+                                                        {[1, 2, 3].map(i => (
+                                                            <div key={i} className="flex items-center space-x-2">
+                                                                <span className="text-[10px] font-black text-slate-600 uppercase w-16">Voice {i}</span>
+                                                                <select
+                                                                    className="flex-1 bg-slate-950 border border-slate-800 text-white p-2 rounded-lg text-xs focus:outline-none"
+                                                                    value={podcastVoices[i - 1]}
+                                                                    onChange={(e) => {
+                                                                        const newVoices = [...podcastVoices];
+                                                                        newVoices[i - 1] = e.target.value;
+                                                                        setPodcastVoices(newVoices);
+                                                                    }}
+                                                                >
+                                                                    {voices.map(v => (
+                                                                        <option key={v.ShortName} value={v.ShortName}>{v.FriendlyName || v.Name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col justify-center">
+                                                <div className="p-6 bg-emerald-600/5 border border-emerald-500/20 rounded-[2rem] space-y-3">
+                                                    <div className="flex items-center space-x-2 text-emerald-500">
+                                                        <Users size={18} />
+                                                        <span className="text-sm font-black uppercase tracking-widest">Multi-Host Engine</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 leading-relaxed italic">
+                                                        The AI will automatically generate a dynamic script and assign it to your chosen voices.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handlePodcastGenerate}
+                                        disabled={isPodcastGenerating || !podcastTopic}
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-5 rounded-2xl flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/20 transition-all"
+                                    >
+                                        {isPodcastGenerating ? <Loader2 className="animate-spin" size={24} /> : <AudioLines size={20} />}
+                                        <span>{isPodcastGenerating ? 'Recording AI Hosts...' : 'Generate Podcast Episode'}</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* MUSIC TAB */}
+                            {activeTab === 'music' && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Primary Instrument</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {instruments.map(inst => (
+                                                    <button
+                                                        key={inst.id}
+                                                        onClick={() => setSelectedInstrument(inst.id)}
+                                                        className={`p-4 rounded-xl border font-bold text-sm transition-all ${selectedInstrument === inst.id ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
+                                                    >
+                                                        {inst.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Music Length</label>
+                                            <input
+                                                type="range" min="10" max="60" step="10"
+                                                value={musicDuration}
+                                                onChange={(e) => setMusicDuration(e.target.value)}
+                                                className="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                            />
+                                            <div className="flex justify-between text-[10px] text-slate-500 font-bold">
+                                                <span>10s</span>
+                                                <span>30s</span>
+                                                <span>60s</span>
+                                            </div>
+                                            <div className="pt-4 flex gap-2">
+                                                <button
+                                                    onClick={handleRingtoneGenerate}
+                                                    disabled={isRingtoneGenerating}
+                                                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl flex items-center justify-center space-x-2 transition-all border border-white/5"
+                                                >
+                                                    {isRingtoneGenerating ? <Loader2 className="animate-spin" size={16} /> : <Speaker size={16} />}
+                                                    <span className="text-xs">Create Ringtone</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleMusicGenerate}
+                                        disabled={isMusicGenerating || !selectedInstrument}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 rounded-2xl flex items-center justify-center space-x-2 shadow-lg transition-all"
+                                    >
+                                        {isMusicGenerating ? <Loader2 className="animate-spin" size={24} /> : <Music size={20} />}
+                                        <span>{isMusicGenerating ? 'Synthesizing Melodies...' : 'Generate Instrumental Beat'}</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* STUDIO TAB */}
+                            {activeTab === 'studio' && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-4">
+                                            <h4 className="text-sm font-black text-slate-300 uppercase tracking-widest">Effects Studio</h4>
+                                            <div className="p-8 border-2 border-dashed border-slate-800 rounded-[2rem] flex flex-col items-center justify-center space-y-4 hover:border-vpurple/50 transition-colors bg-slate-950/30 group">
+                                                <input type="file" id="studio-upload" className="hidden" onChange={(e) => setStudioFile(e.target.files[0])} />
+                                                <label htmlFor="studio-upload" className="cursor-pointer flex flex-col items-center">
+                                                    <div className="p-4 bg-slate-900 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
+                                                        <Upload className="text-vpurple" size={32} />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-400">{studioFile ? studioFile.name : 'Upload Audio to Process'}</span>
+                                                </label>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {['speed_up', 'slowed', 'reverb', 'enhance', 'trigger'].map(ef => (
+                                                    <button
+                                                        key={ef}
+                                                        onClick={() => setStudioEffect(ef)}
+                                                        className={`p-3 rounded-xl border text-[10px] font-black tracking-widest transition-all ${studioEffect === ef ? 'bg-vpurple text-white border-vpurple' : 'bg-slate-950 text-slate-500 border-slate-800 hover:border-slate-700'}`}
+                                                    >
+                                                        {ef.replace('_', ' ').toUpperCase()}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                onClick={handleStudioProcess}
+                                                disabled={isStudioProcessing || !studioFile}
+                                                className="w-full bg-vpurple hover:bg-vpurple-dark text-white font-bold py-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-lg shadow-vpurple/20"
+                                            >
+                                                {isStudioProcessing ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+                                                <span>{isStudioProcessing ? 'Applying Effect...' : 'Process Audio'}</span>
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-4 pt-0">
+                                            <h4 className="text-sm font-black text-slate-300 uppercase tracking-widest">Audio Mashup</h4>
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="flex items-center space-x-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
+                                                        <input type="file" id="mash1" className="hidden" onChange={(e) => setMashupFile1(e.target.files[0])} />
+                                                        <label htmlFor="mash1" className="cursor-pointer flex items-center space-x-3 flex-1">
+                                                            <FileAudio size={20} className="text-vpink" />
+                                                            <span className="text-xs font-bold text-slate-400 truncate">{mashupFile1 ? mashupFile1.name : 'Track 1'}</span>
+                                                        </label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
+                                                        <input type="file" id="mash2" className="hidden" onChange={(e) => setMashupFile2(e.target.files[0])} />
+                                                        <label htmlFor="mash2" className="cursor-pointer flex items-center space-x-3 flex-1">
+                                                            <FileAudio size={20} className="text-vblue" />
+                                                            <span className="text-xs font-bold text-slate-400 truncate">{mashupFile2 ? mashupFile2.name : 'Track 2'}</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-3 p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
+                                                            <span>Crossfade Style</span>
+                                                            <span className="text-vpink capitalize">{mashupStyle}</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-3 gap-1">
+                                                            {['instant', 'smooth', 'overlap'].map(m => (
+                                                                <button
+                                                                    key={m}
+                                                                    onClick={() => setMashupStyle(m)}
+                                                                    className={`py-1 rounded bg-slate-900 text-[8px] font-black uppercase transition-all ${mashupStyle === m ? 'text-vpink border border-vpink/30' : 'text-slate-600 border border-transparent'}`}
+                                                                >
+                                                                    {m}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
+                                                            <span>Mood Alignment</span>
+                                                            <span className="text-vblue">{Math.round(mashupBalance * 100)}% Shift</span>
+                                                        </div>
+                                                        <input
+                                                            type="range" min="0" max="1" step="0.1"
+                                                            value={mashupBalance}
+                                                            onChange={(e) => setMashupBalance(parseFloat(e.target.value))}
+                                                            className="w-full h-1.5 bg-slate-900 rounded-full appearance-none cursor-pointer accent-vblue"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={handleMashup}
+                                                disabled={isMashupGenerating || !mashupFile1 || !mashupFile2}
+                                                className="w-full bg-vpink hover:bg-vpink-dark text-white font-bold py-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-lg shadow-vpink/20"
+                                            >
+                                                {isMashupGenerating ? <Loader2 className="animate-spin" size={20} /> : <AudioLines size={20} />}
+                                                <span>{isMashupGenerating ? 'Creating Mashup...' : 'Generate Audio Mashup'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ANALYSIS TAB */}
+                            {activeTab === 'analysis' && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Analyze Text Mood</label>
+                                                <textarea
+                                                    className="w-full bg-slate-950 border border-slate-800 text-white p-5 rounded-2xl focus:outline-none focus:border-vpurple h-24 transition-all resize-none"
+                                                    placeholder="Type something emotional..."
+                                                    value={analysisText}
+                                                    onChange={(e) => setAnalysisText(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="relative">
+                                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+                                                <div className="relative flex justify-center text-xs uppercase font-black text-slate-600 bg-slate-900 px-2 leading-none">OR</div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Analyze Audio File</label>
+                                                <input type="file" onChange={(e) => setAnalysisFile(e.target.files[0])} className="w-full bg-slate-950 border border-slate-800 text-slate-400 p-3 rounded-xl text-xs" />
+                                            </div>
+                                            <button
+                                                onClick={handleMoodAnalyze}
+                                                disabled={isAnalyzing || (!analysisText && !analysisFile)}
+                                                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-lg"
+                                            >
+                                                {isAnalyzing ? <Loader2 className="animate-spin" size={20} /> : <Brain size={20} />}
+                                                <span>{isAnalyzing ? 'Analyzing Mood...' : 'Analyze Mood'}</span>
+                                            </button>
+                                        </div>
+
+                                        <div className="bg-slate-950/50 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col items-center justify-center">
+                                            {analysisResult ? (
+                                                <div className="w-full space-y-4">
+                                                    <h4 className="text-center font-black text-amber-500 uppercase tracking-widest mb-6">Mood Analysis Results</h4>
+                                                    {Object.entries(analysisResult).map(([mood, perc]) => (
+                                                        <div key={mood} className="space-y-1">
+                                                            <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                                                                <span>{mood}</span>
+                                                                <span>{perc}%</span>
+                                                            </div>
+                                                            <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
+                                                                <motion.div initial={{ width: 0 }} animate={{ width: `${perc}%` }} className="bg-amber-500 h-full" />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center space-y-3">
+                                                    <Brain size={48} className="text-slate-800 mx-auto" />
+                                                    <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">Awaiting Input</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* KARAOKE TAB */}
+                            {activeTab === 'karaoke' && (
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Paste Your Lyrics</label>
+                                            <textarea
+                                                className="w-full bg-slate-950 border border-slate-800 text-white p-6 rounded-2xl focus:outline-none focus:border-vpink h-48 transition-all resize-none font-sans leading-relaxed"
+                                                placeholder="Paste the lyrics you want the AI to sing..."
+                                                value={karaokeLyrics}
+                                                onChange={(e) => setKaraokeLyrics(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Musical Style</label>
+                                                <select
+                                                    className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:outline-none"
+                                                    value={karaokeGenre}
+                                                    onChange={(e) => setKaraokeGenre(e.target.value)}
+                                                >
+                                                    {genres.map(g => (
+                                                        <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-end">
+                                                <button
+                                                    onClick={handleKaraokeGenerate}
+                                                    disabled={isKaraokeGenerating || !karaokeLyrics}
+                                                    className="w-full bg-gradient-to-r from-vpink to-vpurple hover:opacity-90 text-white font-bold py-4 rounded-xl flex items-center justify-center space-x-2 shadow-lg transition-all"
+                                                >
+                                                    {isKaraokeGenerating ? <Loader2 className="animate-spin" size={20} /> : <Mic2 size={20} />}
+                                                    <span>{isKaraokeGenerating ? 'Synthesizing...' : 'Generate AI Karaoke'}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 bg-slate-950/30 border border-slate-800 rounded-2xl">
+                                        <p className="text-xs text-slate-500 leading-relaxed italic">
+                                            <Sparkles size={12} className="inline mr-1 text-vpink" />
+                                            AI will generate vocals matching your lyrics and mix them with a procedural beat. Use this to prepare for your own performance or just enjoy the AI version!
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* TRANSLATOR TAB */}
                             {activeTab === 'translate' && (
                                 <div className="space-y-6">
@@ -499,6 +1164,7 @@ const ModelsPage = () => {
                                             value={targetLang}
                                             onChange={(e) => setTargetLang(e.target.value)}
                                         >
+                                            <option value="all">🌍 All Languages simultaneously</option>
                                             {languages.map(l => (
                                                 <option key={l.code} value={l.code}>{l.flag} {l.name}</option>
                                             ))}
@@ -531,16 +1197,28 @@ const ModelsPage = () => {
                                         <div className="space-y-2">
                                             <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Voice Preset</label>
                                             <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-2">
-                                                {voicePresets.map(p => (
-                                                    <div
-                                                        key={p.id}
-                                                        onClick={() => setSelectedPreset(p.id)}
-                                                        className={`p-3 rounded-xl border flex items-center space-x-2 cursor-pointer transition-all ${selectedPreset === p.id ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
-                                                    >
-                                                        <span className="text-xl">{p.avatar}</span>
-                                                        <span className="text-xs font-bold truncate">{p.name}</span>
+                                                {voicePresets && voicePresets.length > 0 ? (
+                                                    filteredPresets && filteredPresets.length > 0 ? filteredPresets.map(p => (
+                                                        <div
+                                                            key={p.id}
+                                                            onClick={() => setSelectedPreset(p.id)}
+                                                            className={`p-3 rounded-xl border flex items-center space-x-2 cursor-pointer transition-all ${selectedPreset === p.id ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
+                                                        >
+                                                            <span className="text-xl">{p.avatar}</span>
+                                                            <span className="text-xs font-bold truncate">{p.name}</span>
+                                                        </div>
+                                                    )) : (
+                                                        <div className="col-span-2 text-center text-slate-500 text-xs py-4">
+                                                            No presets found in this category.
+                                                        </div>
+                                                    )
+                                                ) : (
+                                                    <div className="col-span-2 text-center text-slate-500 text-xs py-4 flex items-center justify-center space-x-2">
+                                                        <Loader2 className="animate-spin" size={12} />
+                                                        <span>Connecting to voice dimension...</span>
+                                                        <button onClick={fetchVoicePresets} className="ml-2 text-amber-500 hover:underline">Retry</button>
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -600,15 +1278,79 @@ const ModelsPage = () => {
                             {(currentAudio.lyrics || currentAudio.translated_lyrics) && (
                                 <div className="mt-6 pt-6 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {currentAudio.lyrics && (
-                                        <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50">
-                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-2 block">Original Lyrics</span>
+                                        <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 relative group">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Original Lyrics</span>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(currentAudio.lyrics);
+                                                        setStatusMessage({ type: 'success', text: 'Lyrics copied!' });
+                                                    }}
+                                                    className="flex items-center space-x-1 px-2 py-1 bg-slate-800 hover:bg-vpurple rounded-lg transition-all text-slate-400 hover:text-white text-[10px] font-bold"
+                                                >
+                                                    <Copy size={12} />
+                                                    <span>Copy</span>
+                                                </button>
+                                            </div>
                                             <pre className="text-sm text-slate-400 whitespace-pre-wrap font-sans leading-relaxed">{currentAudio.lyrics}</pre>
                                         </div>
                                     )}
                                     {currentAudio.translated_lyrics && (
-                                        <div className="bg-vpurple/5 p-4 rounded-xl border border-vpurple/20">
-                                            <span className="text-[10px] font-black text-vpurple-light uppercase tracking-[0.2em] mb-2 block">Translated Version</span>
+                                        <div className="bg-vpurple/5 p-4 rounded-xl border border-vpurple/20 relative group">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-[10px] font-black text-vpurple-light uppercase tracking-[0.2em]">Translated Version</span>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(currentAudio.translated_lyrics);
+                                                        setStatusMessage({ type: 'success', text: 'Translated lyrics copied!' });
+                                                    }}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-vpurple/20 rounded transition-all text-vpurple-light"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            </div>
                                             <pre className="text-sm text-vpurple-light/90 whitespace-pre-wrap font-sans leading-relaxed">{currentAudio.translated_lyrics}</pre>
+                                        </div>
+                                    )}
+                                    {currentAudio.story && (
+                                        <div className="col-span-full bg-vpink/5 p-6 rounded-2xl border border-vpink/20 relative group">
+                                            <div className="flex justify-between items-center mb-3">
+                                                <span className="text-[10px] font-black text-vpink-light uppercase tracking-[0.2em]">Narrated story</span>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(currentAudio.story);
+                                                        setStatusMessage({ type: 'success', text: 'Story copied!' });
+                                                    }}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-vpink/20 rounded transition-all text-vpink-light"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            </div>
+                                            <p className="text-sm text-vpink-light/90 font-sans leading-relaxed italic">{currentAudio.story}</p>
+                                        </div>
+                                    )}
+                                    {currentAudio.results && currentAudio.type === 'translate_all' && (
+                                        <div className="col-span-full space-y-4 pt-4 border-t border-slate-800">
+                                            <span className="text-[10px] font-black text-vblue-light uppercase tracking-[0.2em]">Universal Translations</span>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                {Object.entries(currentAudio.results).map(([lang, text]) => (
+                                                    <div key={lang} className="p-4 bg-slate-950/50 border border-slate-800/50 rounded-2xl space-y-2 group/item">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-[10px] font-black text-slate-500 uppercase">{lang}</span>
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(text);
+                                                                    setStatusMessage({ type: 'success', text: `${lang} copied!` });
+                                                                }}
+                                                                className="opacity-0 group-hover/item:opacity-100 text-slate-600 hover:text-vpurple transition-all"
+                                                            >
+                                                                <Copy size={12} />
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-xs text-slate-300 line-clamp-3 italic leading-relaxed">{text}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

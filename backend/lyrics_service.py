@@ -20,6 +20,36 @@ from translate_service import LANGUAGE_VOICES
 OUTPUT_DIR = "static/audio"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+def _load_audio_workaround(filepath):
+    """
+    Workaround for missing ffprobe: Convert MP3 to WAV using ffmpeg 
+    and load the WAV using pydub.
+    """
+    if not os.path.exists(filepath):
+        return None
+        
+    try:
+        # If it's already a wav, load it
+        if filepath.endswith('.wav'):
+            return AudioSegment.from_wav(filepath)
+            
+        # Convert to wav
+        wav_path = filepath.replace('.mp3', '_temp.wav')
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        import subprocess
+        subprocess.run([ffmpeg_exe, '-i', filepath, '-y', wav_path], stderr=subprocess.DEVNULL, check=True)
+        
+        audio = AudioSegment.from_wav(wav_path)
+        
+        # Cleanup temp wav
+        if os.path.exists(wav_path):
+            os.remove(wav_path)
+            
+        return audio
+    except Exception as e:
+        print(f"Audio load workaround failed: {e}")
+        return None
+
 # ============= Lyrics Templates by Genre =============
 SONG_STRUCTURES = {
     "pop": {
@@ -482,8 +512,11 @@ async def generate_song(prompt: str, genre: str = "", duration: int = 10, langua
                 print(f"DEBUG: Section {i+1} synthesis produced empty file.")
                 continue
 
-            # Load and process section
-            sec_audio = AudioSegment.from_file(sec_filepath)
+            # Load and process section using workaround
+            sec_audio = _load_audio_workaround(sec_filepath)
+            if sec_audio is None:
+                print(f"DEBUG: Could not load section {i+1} audio.")
+                continue
             
             # Apply volume drift for emotion
             sec_audio = sec_audio + preset.get("volume", 0)
@@ -531,9 +564,22 @@ async def generate_song(prompt: str, genre: str = "", duration: int = 10, langua
             return {"status": "error", "error": f"Synthesis failed: {str(fb_e)}"}
 
     # Export final vocals
-    final_filename = f"song_vocal_{uuid.uuid4().hex[:8]}.mp3"
-    final_filepath = os.path.join(OUTPUT_DIR, final_filename)
-    full_vocals.export(final_filepath, format="mp3")
+    vocal_filename = f"vocal_{uuid.uuid4().hex[:8]}.mp3"
+    vocal_filepath = os.path.join(OUTPUT_DIR, vocal_filename)
+    full_vocals.export(vocal_filepath, format="mp3")
+    
+    # Step 5: Mix with Background Music
+    try:
+        bg_music = _generate_background_music(genre, len(full_vocals))
+        # Mix vocals over music (music slightly lower)
+        combined = bg_music.overlay(full_vocals)
+        
+        final_filename = f"song_full_{uuid.uuid4().hex[:8]}.mp3"
+        final_filepath = os.path.join(OUTPUT_DIR, final_filename)
+        combined.export(final_filepath, format="mp3")
+    except Exception as mix_e:
+        print(f"Mixing failed: {mix_e}")
+        final_filename = vocal_filename
     
     return {
         "filename": final_filename,
@@ -543,7 +589,7 @@ async def generate_song(prompt: str, genre: str = "", duration: int = 10, langua
         "lyrics": final_lyrics,
         "language": language,
         "status": "success",
-        "note": "🎭 AI Song generated successfully!"
+        "note": "🎭 AI Song with Beats generated successfully!"
     }
 
 

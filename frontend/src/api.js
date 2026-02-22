@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.PROD ? '' : 'http://127.0.0.1:8003';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 120000,
+    timeout: 180000,
 });
 
 // ============= Authentication =============
@@ -83,7 +83,83 @@ export const clone_voice = async (presetId, text, mode = 'speak') => {
     return response.data;
 };
 
-// ============= BGM Generator =============
+// ============= Story Teller =============
+export const get_story_genres = async () => {
+    const response = await api.get('/story-genres');
+    return response.data;
+};
 
+export const generate_story = async (genre, topic = '', ageGroup = 'child', language = 'en', duration = 2) => {
+    const response = await api.post('/generate-story', { genre, topic, age_group: ageGroup, language, duration });
+    return response.data;
+};
+
+// ============= AI Podcast =============
+export const get_podcast_topics = async () => {
+    const response = await api.get('/podcast-topics');
+    return response.data;
+};
+
+export const generate_podcast = async (topic, duration, voices = null) => {
+    const response = await api.post('/generate-podcast', { topic, duration, voices });
+    return response.data;
+};
+
+// ============= Music & Beats =============
+export const get_instruments = async () => {
+    const response = await api.get('/instruments');
+    return response.data;
+};
+
+export const generate_music = async (instrument, duration) => {
+    const response = await api.post('/generate-music', { instrument, duration });
+    return response.data;
+};
+
+export const generate_ringtone = async () => {
+    const response = await api.post('/generate-ringtone');
+    return response.data;
+};
+
+// ============= Audio Studio & Mashup =============
+export const studio_process = async (audioFile, effect) => {
+    const formData = new FormData();
+    formData.append('audio', audioFile);
+    formData.append('effect', effect);
+    const response = await api.post('/studio-process', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+};
+
+export const audio_mashup = async (audio1, audio2, style = 'smooth', balance = 0.5) => {
+    const formData = new FormData();
+    formData.append('audio1', audio1);
+    formData.append('audio2', audio2);
+    formData.append('style', style);
+    formData.append('balance', balance);
+    const response = await api.post('/audio-mashup', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+};
+
+// ============= Mood Analysis =============
+export const analyze_mood = async (text, audioFile) => {
+    const formData = new FormData();
+    if (text) formData.append('text', text);
+    if (audioFile) formData.append('audio', audioFile);
+    const response = await api.post('/analyze-mood', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+};
+
+
+// ============= Translate to All Languages =============
+export const translate_to_all = async (text) => {
+    const response = await api.post('/translate-to-all', { text, target_lang: 'all' });
+    return response.data;
+};
 
 export default api;
