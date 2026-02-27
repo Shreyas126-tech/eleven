@@ -23,6 +23,17 @@ import traceback
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Configure FFmpeg for pydub
+try:
+    import imageio_ffmpeg as ffmpeg
+    from pydub import AudioSegment
+    AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
+    logger.info(f"FFmpeg path set to: {AudioSegment.converter}")
+except ImportWarning:
+    logger.warning("imageio-ffmpeg or pydub not found, audio processing might fail.")
+except Exception as e:
+    logger.error(f"Error configuring FFmpeg: {e}")
+
 # Initialize Database
 models.Base.metadata.create_all(bind=database.engine)
 

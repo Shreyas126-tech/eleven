@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // In production (Render), use same origin. In dev, use localhost:8001
-const API_BASE_URL = import.meta.env.PROD ? '' : 'http://127.0.0.1:8003';
+const API_BASE_URL = import.meta.env.PROD ? '' : '/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,

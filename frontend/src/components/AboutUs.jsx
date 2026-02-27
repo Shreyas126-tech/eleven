@@ -39,7 +39,7 @@ const AboutUs = () => {
             steps: ["Enter text in the box", "Select language filter", "Pick a voice profile", "Click Generate Voice"]
         },
         {
-            title: "Lyrics & simultaneous Translate",
+            title: "Lyrics & Translate",
             icon: Music,
             desc: "Generate professional lyrics from a simple prompt. Translate them instantly and hear them sung by AI.",
             color: "text-vpink-light",
@@ -58,6 +58,41 @@ const AboutUs = () => {
             desc: "Mimic any voice preset. Use specialized age-group and style models for unique vocal textures.",
             color: "text-amber-400",
             steps: ["Enter script to speak/sing", "Select a voice preset", "Choose Speak or Sing mode", "Generate your clone"]
+        },
+        {
+            title: "AI Story Teller",
+            icon: Sparkles,
+            desc: "Create immersive narratives for any audience. Perfect for bedtime stories, audiobooks, or roleplay.",
+            color: "text-emerald-400",
+            steps: ["Select a genre (Adventure, Sci-Fi, etc.)", "Enter a topic or theme", "Set target age group and duration", "Click Generate Story"]
+        },
+        {
+            title: "AI Podcast Generator",
+            icon: Volume2,
+            desc: "Instant conversational content. Generate multi-speaker podcasts on any topic in seconds.",
+            color: "text-orange-400",
+            steps: ["Enter a podcast topic", "Select duration (minutes)", "Choose host voices (optional)", "Click Generate Podcast"]
+        },
+        {
+            title: "Music & Beats",
+            icon: Music,
+            desc: "AI-generated soundtracks and ringtones. High-quality instrumental music tailored to your needs.",
+            color: "text-rose-400",
+            steps: ["Select a musical instrument", "Set duration (seconds)", "Choose Ringtone or BG Music", "Click Generate Music"]
+        },
+        {
+            title: "Studio & Mashup",
+            icon: Sparkles,
+            desc: "Professional audio editing and blending. Apply studio effects or mash multiple tracks seamlessly.",
+            color: "text-indigo-400",
+            steps: ["Upload audio file(s)", "Choose effect (Reverb, Bass, etc.)", "Select Mashup style", "Click Process or Mashup"]
+        },
+        {
+            title: "Analysis Intelligence",
+            icon: Info,
+            desc: "Dual emotional and linguistic processing. Analyze text sentiment and convert audio speech to text seamlessly.",
+            color: "text-cyan-400",
+            steps: ["Enter words or sentences for Mood Analysis", "Upload voice files for Audio File Analysis", "View emotional breakdown for text results", "Review generated text from audio speech"]
         }
     ];
 

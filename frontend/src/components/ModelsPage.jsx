@@ -418,12 +418,20 @@ const ModelsPage = () => {
     const handleMoodAnalyze = async () => {
         if (!analysisText && !analysisFile) return;
         setIsAnalyzing(true);
+        setAnalysisResult(null);
         setStatusMessage({ type: 'info', text: '🧠 Analyzing patterns, detecting mood...' });
         try {
             const result = await api.analyze_mood(analysisText, analysisFile);
-            setAnalysisResult(result.mood);
+            if (result.status === 'error') {
+                setStatusMessage({ type: 'error', text: result.error || 'Analysis failed.' });
+                return;
+            }
+            setAnalysisResult(result);
             setStatusMessage({ type: 'success', text: 'Mood analysis complete!' });
-        } catch (e) { setStatusMessage({ type: 'error', text: 'Analysis failed.' }); }
+        } catch (e) {
+            console.error('Analysis error:', e);
+            setStatusMessage({ type: 'error', text: e?.response?.data?.detail || 'Analysis failed.' });
+        }
         finally { setIsAnalyzing(false); }
     };
 
@@ -755,20 +763,6 @@ const ModelsPage = () => {
                                                             <option value="adult">👨 Adult (Suspense/Horror)</option>
                                                         </select>
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Story Duration</label>
-                                                        <div className="grid grid-cols-4 gap-2">
-                                                            {[2, 5, 10, 15].map(d => (
-                                                                <button
-                                                                    key={d}
-                                                                    onClick={() => setStoryDuration(d)}
-                                                                    className={`p-3 rounded-lg border font-bold text-xs transition-all ${storyDuration === d ? 'bg-vpurple text-white border-vpurple shadow-lg shadow-vpurple/20' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-700'}`}
-                                                                >
-                                                                    {d} min
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
                                                 </div>
                                                 <div className="space-y-4">
                                                     <div className="space-y-2">
@@ -1038,10 +1032,10 @@ const ModelsPage = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-4">
                                             <div className="space-y-2">
-                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Analyze Text Mood</label>
+                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Mood Analysis (Words/Sentences)</label>
                                                 <textarea
                                                     className="w-full bg-slate-950 border border-slate-800 text-white p-5 rounded-2xl focus:outline-none focus:border-vpurple h-24 transition-all resize-none"
-                                                    placeholder="Type something emotional..."
+                                                    placeholder="Type a word or sentence for flexible sentiment analysis..."
                                                     value={analysisText}
                                                     onChange={(e) => setAnalysisText(e.target.value)}
                                                 />
@@ -1051,7 +1045,7 @@ const ModelsPage = () => {
                                                 <div className="relative flex justify-center text-xs uppercase font-black text-slate-600 bg-slate-900 px-2 leading-none">OR</div>
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Analyze Audio File</label>
+                                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest pl-1">Audio File Analysis (Speech to Text)</label>
                                                 <input type="file" onChange={(e) => setAnalysisFile(e.target.files[0])} className="w-full bg-slate-950 border border-slate-800 text-slate-400 p-3 rounded-xl text-xs" />
                                             </div>
                                             <button
@@ -1060,25 +1054,40 @@ const ModelsPage = () => {
                                                 className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-lg"
                                             >
                                                 {isAnalyzing ? <Loader2 className="animate-spin" size={20} /> : <Brain size={20} />}
-                                                <span>{isAnalyzing ? 'Analyzing Mood...' : 'Analyze Mood'}</span>
+                                                <span>{isAnalyzing ? 'Processing Intelligence...' : 'Run Analysis'}</span>
                                             </button>
                                         </div>
 
                                         <div className="bg-slate-950/50 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col items-center justify-center">
                                             {analysisResult ? (
                                                 <div className="w-full space-y-4">
-                                                    <h4 className="text-center font-black text-amber-500 uppercase tracking-widest mb-6">Mood Analysis Results</h4>
-                                                    {Object.entries(analysisResult).map(([mood, perc]) => (
-                                                        <div key={mood} className="space-y-1">
-                                                            <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
-                                                                <span>{mood}</span>
-                                                                <span>{perc}%</span>
-                                                            </div>
-                                                            <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                                                                <motion.div initial={{ width: 0 }} animate={{ width: `${perc}%` }} className="bg-amber-500 h-full" />
-                                                            </div>
+                                                    <h4 className="text-center font-black text-amber-500 uppercase tracking-widest mb-2">Analysis Results</h4>
+
+                                                    {analysisResult.transcribed_text && (
+                                                        <div className="mb-6 p-4 bg-slate-900 rounded-2xl border border-slate-800 text-left">
+                                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Transcribed Text</label>
+                                                            <p className="text-sm text-slate-300 italic">"{analysisResult.transcribed_text}"</p>
                                                         </div>
-                                                    ))}
+                                                    )}
+
+                                                    <div className="space-y-4">
+                                                        {analysisResult.mood && Object.entries(analysisResult.mood).sort((a, b) => b[1] - a[1]).map(([mood, perc]) => (
+                                                            <div key={mood} className="space-y-1 text-left">
+                                                                <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                                                                    <span className={mood === 'neutral' ? 'text-slate-500' : 'text-amber-500'}>{mood}</span>
+                                                                    <span>{perc}%</span>
+                                                                </div>
+                                                                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
+                                                                    <motion.div
+                                                                        initial={{ width: 0 }}
+                                                                        animate={{ width: `${perc}%` }}
+                                                                        className={mood === 'neutral' ? 'bg-slate-700 h-full' : 'bg-amber-500 h-full'}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                        )}
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <div className="text-center space-y-3">

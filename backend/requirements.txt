@@ -15,4 +15,5 @@ pydub
 imageio-ffmpeg
 sqlalchemy
 passlib[bcrypt]
+psycopg2-binary
 bcrypt
